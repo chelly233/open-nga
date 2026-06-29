@@ -170,6 +170,10 @@ public class ThreadRowInfo {
         return fid;
     }
 
+    public void setFid(int fid) {
+        this.fid = fid;
+    }
+
     public String getSubject() {
         return subject;
     }

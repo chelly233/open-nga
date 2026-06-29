@@ -34,6 +34,8 @@ import sp.phone.util.StringUtils;
 
 public class ArticleListPresenter extends BasePresenter<ArticleListFragment, ArticleListModel> implements ArticleListContract.Presenter {
 
+    private static final String READ_USER_AGENT = "NGA_WP_JW/(;WINDOWS)";
+
     private LikeTask mLikeTask;
 
     private ThreadData mThreadData;
@@ -54,9 +56,14 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
 
         @Override
         public void onError(String msg, Throwable t) {
-            onError(msg);
             if (t instanceof ArticleListModel.ServerException) {
+                if (mBaseView != null) {
+                    mBaseView.hideLoadingView();
+                    mBaseView.setRefreshing(false);
+                }
                 showWithWebView();
+            } else {
+                onError(msg);
             }
         }
 
@@ -107,12 +114,19 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
         }
         Map<String, String> header = new ArrayMap<>();
         header.put("Cookie", cookie);
+        header.put("User-Agent", READ_USER_AGENT);
+        header.put("X-User-Agent", READ_USER_AGENT);
+        header.put("Referer", getCurrentUrl());
         mBaseModel.loadPage(mRequestParam, header, mDataCallBack);
         return true;
     }
 
     @Override
     public void loadPage(ArticleListParam param) {
+        mRequestParam = param;
+        mHeaderMap.put("User-Agent", READ_USER_AGENT);
+        mHeaderMap.put("X-User-Agent", READ_USER_AGENT);
+        mHeaderMap.put("Referer", getCurrentUrl());
         mBaseView.setRefreshing(true);
         mBaseModel.loadPage(param, mHeaderMap, mRetryCallback);
     }

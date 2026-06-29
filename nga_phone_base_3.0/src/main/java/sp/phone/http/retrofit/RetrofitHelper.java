@@ -102,10 +102,18 @@ public class RetrofitHelper {
             if (cookie == null) {
                 cookie = UserManagerImpl.getInstance().getCookie();
             }
+            String userAgent = original.header("User-Agent");
+            if (TextUtils.isEmpty(userAgent)) {
+                userAgent = mUserAgent;
+            }
+            String xUserAgent = original.header("X-User-Agent");
+            if (TextUtils.isEmpty(xUserAgent)) {
+                xUserAgent = "Nga_Official";
+            }
             Request request = original.newBuilder()
                     .header("Cookie", cookie)
-                    .header("User-Agent", mUserAgent)
-                    .header("X-User-Agent", "Nga_Official")
+                    .header("User-Agent", userAgent)
+                    .header("X-User-Agent", xUserAgent)
                     .method(original.method(), original.body())
                     .build();
             return chain.proceed(request);

@@ -65,18 +65,69 @@ public class ArticleConvertFactory {
             if (obj == null) {
                 return null;
             }
-            int allRows = (Integer) obj.get("__ROWS");
+            ThreadPageInfo threadInfo = buildThreadPageInfo(obj);
+            if (threadInfo == null) {
+                return null;
+            }
+            Integer allRows = (Integer) obj.get("__ROWS");
+            List<ThreadRowInfo> rowList = buildThreadRowList(obj);
+            if (rowList.isEmpty()) {
+                return null;
+            }
             data = new ThreadData();
             data.setRawData(js);
-            data.setThreadInfo(buildThreadPageInfo(obj));
-            data.setRowList(buildThreadRowList(obj));
-            data.set__ROWS(allRows);
+            data.setThreadInfo(threadInfo);
+            data.setRowList(rowList);
+            data.set__ROWS(allRows == null ? rowList.size() : allRows);
             data.setRowNum(data.getRowList().size());
         } catch (Exception e) {
-            NLog.e(TAG, "can not parse :\n" + js);
-            e.printStackTrace();
+            NLog.e(TAG, "can not parse: " + e.getClass().getSimpleName()
+                    + "\n" + getErrorSnippet(js, e));
         }
         return data;
+    }
+
+    private static String getErrorSnippet(String js, Throwable throwable) {
+        int offset = findJsonErrorOffset(throwable);
+        if (offset < 0 || offset >= js.length()) {
+            offset = Math.max(0, js.length() - 1);
+        }
+        int start = Math.max(0, offset - 160);
+        int end = Math.min(js.length(), offset + 160);
+        return "length=" + js.length() + ", offset=" + offset + ", snippet="
+                + js.substring(start, end)
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
+    }
+
+    private static int findJsonErrorOffset(Throwable throwable) {
+        while (throwable != null) {
+            String message = throwable.getMessage();
+            int offset = findJsonErrorOffset(message);
+            if (offset >= 0) {
+                return offset;
+            }
+            throwable = throwable.getCause();
+        }
+        return -1;
+    }
+
+    private static int findJsonErrorOffset(String message) {
+        if (message == null) {
+            return -1;
+        }
+
+        Matcher matcher = Pattern.compile("offset (\\d+)|syntax error : (\\d+)|index=(\\d+)").matcher(message);
+        if (!matcher.find()) {
+            return -1;
+        }
+        for (int i = 1; i <= matcher.groupCount(); i++) {
+            String group = matcher.group(i);
+            if (group != null) {
+                return Integer.parseInt(group);
+            }
+        }
+        return -1;
     }
 
     private static ThreadPageInfo buildThreadPageInfo(JSONObject obj) {
@@ -126,7 +177,7 @@ public class ArticleConvertFactory {
         return rowList;
     }
 
-    private static void buildRowContent(ThreadRowInfo row) {
+    static void buildRowContent(ThreadRowInfo row) {
         if (row.getContent() == null) {
             row.setContent(row.getSubject());
             row.setSubject(null);
@@ -395,4 +446,3 @@ public class ArticleConvertFactory {
     }
 
 }
-

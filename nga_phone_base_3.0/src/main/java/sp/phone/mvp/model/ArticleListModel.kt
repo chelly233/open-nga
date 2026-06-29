@@ -8,6 +8,7 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 import gov.anzong.androidnga.base.util.ContextUtils;
@@ -26,6 +27,8 @@ import sp.phone.http.retrofit.RetrofitHelper;
 import sp.phone.http.retrofit.RetrofitService;
 import sp.phone.mvp.contract.ArticleListContract;
 import sp.phone.mvp.model.convert.ArticleConvertFactory;
+import sp.phone.mvp.model.convert.ArticleWebConvertFactory;
+import sp.phone.mvp.model.convert.ArticleXmlConvertFactory;
 import sp.phone.mvp.model.convert.ErrorConvertFactory;
 import sp.phone.param.ArticleListParam;
 import sp.phone.rxjava.BaseSubscriber;
@@ -39,6 +42,7 @@ import sp.phone.util.NLog;
 class ArticleListModel : BaseModel(), ArticleListContract.Model {
 
     private val TAG = ArticleListModel::class.simpleName
+    private val WEB_USER_AGENT = "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Mobile Safari/537.36"
 
     private lateinit var mService: RetrofitService
 
@@ -48,12 +52,42 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
     }
 
     fun getUrl(param: ArticleListParam): String {
+        return getReadUrl(param, "&__output=8&noprefix&v2")
+    }
+
+    private fun getXmlUrl(param: ArticleListParam): String {
+        return getReadUrl(param, "&lite=xml&noprefix&v2")
+    }
+
+    private fun getCompactXmlUrl(param: ArticleListParam): String {
+        return getReadUrl(param, "&__output=10&noprefix&v2")
+    }
+
+    private fun getWebUrl(param: ArticleListParam): String {
+        var page = param.page;
+        var tid = param.tid;
+        var pid = param.pid;
+        var authorId = param.authorId;
+        var url = getAvailableDomain() + "/read.php?" + "&page=" + page;
+        if (tid != 0) {
+            url = url + "&tid=" + tid;
+        }
+        if (pid != 0) {
+            url = url + "&pid=" + pid;
+        }
+        if (authorId != 0) {
+            url = url + "&authorid=" + authorId;
+        }
+        return url;
+    }
+
+    private fun getReadUrl(param: ArticleListParam, output: String): String {
         var page = param.page;
         var tid = param.tid;
         var pid = param.pid;
         var authorId = param.authorId;
         var url =
-            getAvailableDomain() + "/read.php?" + "&page=" + page + "&__output=8&noprefix&v2";
+            getAvailableDomain() + "/read.php?" + "&page=" + page + output + "&__inchst=UTF8";
         if (tid != 0) {
             url = url + "&tid=" + tid;
         }
@@ -79,8 +113,47 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
         header: MutableMap<String, String>?,
         callBack: OnHttpCallBack<ThreadData>
     ) {
-        val url = getUrl(param)
-        mService.get(url, header)
+        requestJsonPage(getUrl(param), header)
+            .onErrorResumeNext { throwable: Throwable ->
+                if (throwable is ServerException) {
+                    requestXmlPage(getXmlUrl(param), header)
+                        .onErrorResumeNext { xmlThrowable: Throwable ->
+                            if (xmlThrowable is ServerException) {
+                                requestXmlPage(getCompactXmlUrl(param), header)
+                                    .onErrorResumeNext { compactXmlThrowable: Throwable ->
+                                        if (compactXmlThrowable is ServerException) {
+                                            requestWebPage(getWebUrl(param), header)
+                                        } else {
+                                            Observable.error(compactXmlThrowable)
+                                        }
+                                    }
+                            } else {
+                                Observable.error(xmlThrowable)
+                            }
+                        }
+                } else {
+                    Observable.error(throwable)
+                }
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .compose(getLifecycleProvider().bindUntilEvent(FragmentEvent.DETACH))
+            .subscribe(object : BaseSubscriber<ThreadData>() {
+                override fun onNext(threadData: ThreadData) {
+                    callBack.onSuccess(threadData)
+                    UserManagerImpl.getInstance().putAvatarUrl(threadData)
+                }
+
+                override fun onError(throwable: Throwable) {
+                    callBack.onError(ErrorConvertFactory.getErrorMessage(throwable), throwable)
+                }
+            })
+    }
+
+    private fun requestJsonPage(
+        url: String,
+        header: MutableMap<String, String>?
+    ): Observable<ThreadData> {
+        return mService.post(url, header, HashMap<String, String>())
             .subscribeOn(Schedulers.io())
             .observeOn(Schedulers.newThread())
             .compose(getLifecycleProvider().bindUntilEvent(FragmentEvent.DETACH))
@@ -99,18 +172,56 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                     data
                 }
             }
-            .observeOn(AndroidSchedulers.mainThread())
-            .compose(getLifecycleProvider().bindUntilEvent(FragmentEvent.DETACH))
-            .subscribe(object : BaseSubscriber<ThreadData>() {
-                override fun onNext(threadData: ThreadData) {
-                    callBack.onSuccess(threadData)
-                    UserManagerImpl.getInstance().putAvatarUrl(threadData)
-                }
+    }
 
-                override fun onError(throwable: Throwable) {
-                    callBack.onError(ErrorConvertFactory.getErrorMessage(throwable), throwable)
+    private fun requestXmlPage(
+        url: String,
+        header: MutableMap<String, String>?
+    ): Observable<ThreadData> {
+        return mService.post(url, header, HashMap<String, String>())
+            .subscribeOn(Schedulers.io())
+            .observeOn(Schedulers.newThread())
+            .compose(getLifecycleProvider().bindUntilEvent(FragmentEvent.DETACH))
+            .map { s ->
+                val time = System.currentTimeMillis()
+                val data = ArticleXmlConvertFactory.getArticleInfo(s)
+                NLog.e(TAG, "xml time = ${System.currentTimeMillis() - time}")
+                if (data == null) {
+                    val errorMsg = ErrorConvertFactory.getErrorMessage(s)
+                    if (errorMsg != null) {
+                        throw Exception(errorMsg)
+                    } else {
+                        throw ServerException("NGA后台抽风了，请尝试右上角菜单中的使用内置浏览器打开")
+                    }
+                } else {
+                    data
                 }
-            })
+            }
+    }
+
+    private fun requestWebPage(
+        url: String,
+        header: MutableMap<String, String>?
+    ): Observable<ThreadData> {
+        val webHeader = HashMap<String, String>()
+        if (header != null) {
+            webHeader.putAll(header)
+        }
+        webHeader["User-Agent"] = WEB_USER_AGENT
+        return mService.get(url, webHeader)
+            .subscribeOn(Schedulers.io())
+            .observeOn(Schedulers.newThread())
+            .compose(getLifecycleProvider().bindUntilEvent(FragmentEvent.DETACH))
+            .map { s ->
+                val time = System.currentTimeMillis()
+                val data = ArticleWebConvertFactory.getArticleInfo(s)
+                NLog.e(TAG, "web time = ${System.currentTimeMillis() - time}")
+                if (data == null) {
+                    throw ServerException("NGA后台抽风了，请尝试右上角菜单中的使用内置浏览器打开")
+                } else {
+                    data
+                }
+            }
     }
 
 
