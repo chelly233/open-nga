@@ -9,6 +9,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SearchView;
@@ -48,6 +49,8 @@ public class TopicHistoryFragment extends BaseFragment implements View.OnClickLi
 
     private String mQuery = "";
 
+    private TextView mEmptyView;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         setHasOptionsMenu(true);
@@ -58,17 +61,19 @@ public class TopicHistoryFragment extends BaseFragment implements View.OnClickLi
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_settings_user, container, false);
+        return inflater.inflate(R.layout.fragment_topic_history, container, false);
     }
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         mTopicListAdapter = new TopicListAdapter(getContext());
+        mTopicListAdapter.setShowHistoryPage(true);
         mTopicListAdapter.setOnClickListener(this);
 
         mListView = view.findViewById(R.id.list);
         mListView.setLayoutManager(new LinearLayoutManager(getContext()));
         mListView.setEmptyView(view.findViewById(R.id.empty_view));
+        mEmptyView = view.findViewById(R.id.tv_empty);
         mListView.setAdapter(mTopicListAdapter);
         mListView.addItemDecoration(new DividerItemDecorationEx(view.getContext(), ContextUtils.getDimension(R.dimen.topic_list_item_padding), DividerItemDecoration.VERTICAL));
 
@@ -99,11 +104,15 @@ public class TopicHistoryFragment extends BaseFragment implements View.OnClickLi
     private void setData(List<ThreadPageInfo> topicLIst) {
         TopicListInfo listInfo = new TopicListInfo();
         listInfo.setThreadPageList(topicLIst);
+        mTopicListAdapter.setHighlightKeyword(mQuery);
         mTopicListAdapter.clear();
         mTopicListAdapter.setData(listInfo.getThreadPageList());
     }
 
     private void refreshData() {
+        if (mEmptyView != null) {
+            mEmptyView.setText(TextUtils.isEmpty(mQuery) ? R.string.topic_history_empty : R.string.topic_history_search_empty);
+        }
         setData(mTopicHistoryManager.searchTopicHistory(mQuery));
     }
 

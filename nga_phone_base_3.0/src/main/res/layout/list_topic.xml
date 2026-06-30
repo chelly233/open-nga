@@ -13,6 +13,16 @@
         android:textIsSelectable="false"
         android:textSize="17.0sp" />
 
+    <TextView
+        android:id="@+id/history_page"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="6dp"
+        android:textColor="@color/night_link_color"
+        android:textIsSelectable="false"
+        android:textSize="@dimen/topic_list_item_sub_text_size"
+        android:visibility="gone" />
+
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

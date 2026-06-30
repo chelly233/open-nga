@@ -163,6 +163,9 @@
     <string name="move_avatar">移动头像到新位置</string>
     <string name="error">错误</string>
     <string name="recent">最近访问</string>
+    <string name="topic_history_empty">暂无浏览历史</string>
+    <string name="topic_history_search_empty">没有匹配的浏览历史</string>
+    <string name="topic_history_last_page">上次阅读：第 %1$d 页</string>
     <string name="addfid">用户自定义</string>
     <string name="addfid_title_hint">输入版面名称及ID添加版面</string>
     <string name="urlto_title_hint">输入或粘贴URL地址</string>

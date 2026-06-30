@@ -24,8 +24,20 @@ import sp.phone.theme.ThemeManager;
 
 public class TopicListAdapter extends BaseAppendableAdapter<ThreadPageInfo, TopicListAdapter.TopicViewHolder> {
 
+    private boolean mShowHistoryPage;
+
+    private String mHighlightKeyword;
+
     public TopicListAdapter(Context context) {
         super(context);
+    }
+
+    public void setShowHistoryPage(boolean showHistoryPage) {
+        mShowHistoryPage = showHistoryPage;
+    }
+
+    public void setHighlightKeyword(String highlightKeyword) {
+        mHighlightKeyword = highlightKeyword;
     }
 
     @Override
@@ -71,7 +83,14 @@ public class TopicListAdapter extends BaseAppendableAdapter<ThreadPageInfo, Topi
         holder.author.setText(authorName);
         holder.lastReply.setText(entry.getLastPoster());
         holder.num.setText(String.valueOf(entry.getReplies()));
-        holder.title.setText(TopicTitleHelper.handleTitleFormat(entry));
+        holder.title.setText(TopicTitleHelper.handleTitleFormat(entry, mHighlightKeyword));
+        if (mShowHistoryPage) {
+            holder.historyPage.setVisibility(View.VISIBLE);
+            int page = Math.max(entry.getPage(), 1);
+            holder.historyPage.setText(mContext.getString(R.string.topic_history_last_page, page));
+        } else {
+            holder.historyPage.setVisibility(View.GONE);
+        }
     }
 
     public class TopicViewHolder extends RecyclerView.ViewHolder {
@@ -81,6 +100,9 @@ public class TopicListAdapter extends BaseAppendableAdapter<ThreadPageInfo, Topi
 
         @BindView(R.id.title)
         public TextView title;
+
+        @BindView(R.id.history_page)
+        public TextView historyPage;
 
         @BindView(R.id.author)
         public TextView author;

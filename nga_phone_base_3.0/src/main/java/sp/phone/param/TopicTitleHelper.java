@@ -4,6 +4,7 @@ import android.graphics.Typeface;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
+import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
@@ -95,6 +96,10 @@ public class TopicTitleHelper {
     }
 
     public static CharSequence handleTitleFormat(ThreadPageInfo entry) {
+        return handleTitleFormat(entry, null);
+    }
+
+    public static CharSequence handleTitleFormat(ThreadPageInfo entry, String keyword) {
 
         String title = StringUtils.removeBrTag(StringUtils.unEscapeHtml(entry.getSubject()));
         SpannableStringBuilder builder = new SpannableStringBuilder(title);
@@ -129,6 +134,8 @@ public class TopicTitleHelper {
             }
         }
 
+        applyKeywordHighlight(builder, title, keyword);
+
         if (!TextUtils.isEmpty(entry.getBoard())) {
             SpannableStringBuilder boardBuilder = new SpannableStringBuilder();
             boardBuilder.append("  [").append(entry.getBoard()).append("]");
@@ -136,6 +143,20 @@ public class TopicTitleHelper {
             builder.append(boardBuilder);
         }
         return builder;
+    }
+
+    private static void applyKeywordHighlight(SpannableStringBuilder builder, String title, String keyword) {
+        if (TextUtils.isEmpty(title) || TextUtils.isEmpty(keyword)) {
+            return;
+        }
+        String lowerTitle = title.toLowerCase(Locale.US);
+        String lowerKeyword = keyword.toLowerCase(Locale.US);
+        int start = lowerTitle.indexOf(lowerKeyword);
+        while (start >= 0) {
+            int end = start + keyword.length();
+            builder.setSpan(new BackgroundColorSpan(ContextUtils.getColor(R.color.colorAccentGreen)), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            start = lowerTitle.indexOf(lowerKeyword, end);
+        }
     }
 
 }

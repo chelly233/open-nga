@@ -11,6 +11,8 @@ import java.util.List;
 
 import gov.anzong.androidnga.base.util.ContextUtils;
 import gov.anzong.androidnga.common.PreferenceKey;
+import gov.anzong.androidnga.db.AppDatabase;
+import gov.anzong.androidnga.db.topic.TopicHistoryDao;
 import sp.phone.mvp.model.entity.ThreadPageInfo;
 
 /**
@@ -22,6 +24,8 @@ public class TopicHistoryManager {
     private Context mContext;
 
     private List<ThreadPageInfo> mTopicList;
+
+    private TopicHistoryDao mTopicHistoryDao;
 
     private static final int MAX_HISTORY_TOPIC_COUNT = 500;
 
@@ -36,93 +40,95 @@ public class TopicHistoryManager {
 
     private TopicHistoryManager() {
         mContext = ContextUtils.getContext();
+        mTopicHistoryDao = AppDatabase.getInstance().topicHistoryDao();
+        importLegacyTopicHistory();
+        reloadTopicHistory();
+    }
+
+    private void importLegacyTopicHistory() {
         String topicStr = PreferenceManager.getDefaultSharedPreferences(mContext).getString(PreferenceKey.KEY_TOPIC_HISTORY, null);
-        if (topicStr != null) {
-            mTopicList = JSON.parseArray(topicStr, ThreadPageInfo.class);
+        if (TextUtils.isEmpty(topicStr)) {
+            return;
         }
-        if (mTopicList == null) {
-            mTopicList = new ArrayList<>();
+        List<ThreadPageInfo> legacyTopicList = JSON.parseArray(topicStr, ThreadPageInfo.class);
+        if (legacyTopicList != null) {
+            long updatedAt = System.currentTimeMillis();
+            for (ThreadPageInfo topic : legacyTopicList) {
+                TopicHistoryInfo history = TopicHistoryInfo.fromThreadPageInfo(topic);
+                history.updatedAt = updatedAt--;
+                mTopicHistoryDao.saveTopicHistory(history);
+            }
+            mTopicHistoryDao.trimTopicHistory(MAX_HISTORY_TOPIC_COUNT);
         }
+        PreferenceManager.getDefaultSharedPreferences(mContext)
+                .edit()
+                .remove(PreferenceKey.KEY_TOPIC_HISTORY)
+                .apply();
+    }
+
+    private void reloadTopicHistory() {
+        mTopicList = toThreadPageInfoList(mTopicHistoryDao.loadTopicHistory(MAX_HISTORY_TOPIC_COUNT));
     }
 
     public void addTopicHistory(ThreadPageInfo topic) {
-        if (mTopicList.contains(topic)) {
-            mTopicList.remove(topic);
-        } else if (mTopicList.size() >= MAX_HISTORY_TOPIC_COUNT){
-            mTopicList.remove(mTopicList.size() - 1);
+        if (topic == null || topic.getTid() == 0 || topic.getPid() != 0) {
+            return;
         }
-        mTopicList.add(0,topic);
-        commit();
+        mTopicHistoryDao.saveTopicHistory(TopicHistoryInfo.fromThreadPageInfo(topic));
+        mTopicHistoryDao.trimTopicHistory(MAX_HISTORY_TOPIC_COUNT);
+        reloadTopicHistory();
     }
 
     public ThreadPageInfo findTopicHistory(int tid) {
-        for (ThreadPageInfo topic : mTopicList) {
-            if (topic.getTid() == tid && topic.getPid() == 0) {
-                return topic;
-            }
-        }
-        return null;
+        TopicHistoryInfo history = mTopicHistoryDao.findTopicHistory(tid);
+        return history == null ? null : history.toThreadPageInfo();
     }
 
     public void updateTopicPage(int tid, int page) {
         if (tid == 0 || page <= 0) {
             return;
         }
-        ThreadPageInfo topic = findTopicHistory(tid);
-        if (topic != null && topic.getPage() != page) {
-            topic.setPage(page);
-            commit();
-        }
+        mTopicHistoryDao.updateTopicPage(tid, page, System.currentTimeMillis());
+        reloadTopicHistory();
     }
 
     public List<ThreadPageInfo> searchTopicHistory(String query) {
         if (TextUtils.isEmpty(query)) {
             return mTopicList;
         }
-        String lowerQuery = query.toLowerCase();
-        List<ThreadPageInfo> result = new ArrayList<>();
-        for (ThreadPageInfo topic : mTopicList) {
-            if (containsIgnoreCase(topic.getSubject(), lowerQuery)
-                    || containsIgnoreCase(topic.getAuthor(), lowerQuery)
-                    || containsIgnoreCase(topic.getLastPoster(), lowerQuery)
-                    || String.valueOf(topic.getTid()).contains(query)) {
-                result.add(topic);
-            }
-        }
-        return result;
-    }
-
-    private boolean containsIgnoreCase(String value, String lowerQuery) {
-        return value != null && value.toLowerCase().contains(lowerQuery);
+        String likeQuery = "%" + query + "%";
+        return toThreadPageInfoList(mTopicHistoryDao.searchTopicHistory(likeQuery, MAX_HISTORY_TOPIC_COUNT));
     }
 
     public void removeTopicHistory(ThreadPageInfo topic) {
-        if (mTopicList.contains(topic)) {
-            mTopicList.remove(topic);
-            commit();
+        if (topic != null) {
+            mTopicHistoryDao.deleteTopicHistory(topic.getTid());
+            reloadTopicHistory();
         }
     }
 
     public void removeTopicHistory(int index) {
-        mTopicList.remove(index);
-        commit();
+        if (index >= 0 && index < mTopicList.size()) {
+            removeTopicHistory(mTopicList.get(index));
+        }
     }
 
     public List<ThreadPageInfo> getTopicHistoryList() {
+        reloadTopicHistory();
         return mTopicList;
     }
 
     public void removeAllTopicHistory() {
-        mTopicList.clear();
-        commit();
+        mTopicHistoryDao.deleteAllTopicHistory();
+        reloadTopicHistory();
     }
 
-    private void commit() {
-        String topicStr = JSON.toJSONString(mTopicList);
-        PreferenceManager.getDefaultSharedPreferences(mContext)
-                .edit()
-                .putString(PreferenceKey.KEY_TOPIC_HISTORY,topicStr)
-                .apply();
+    private List<ThreadPageInfo> toThreadPageInfoList(List<TopicHistoryInfo> historyList) {
+        List<ThreadPageInfo> topicList = new ArrayList<>();
+        for (TopicHistoryInfo history : historyList) {
+            topicList.add(history.toThreadPageInfo());
+        }
+        return topicList;
     }
 
 }
