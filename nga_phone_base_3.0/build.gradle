@@ -17,7 +17,7 @@ android {
     compileSdkVersion project.compileSdkVersion
     namespace 'gov.anzong.androidnga'
     defaultConfig {
-        applicationId "dev.mlzzen.androidnga"
+        applicationId "me.chelly.opennga"
         minSdkVersion project.minSdkVersion
         targetSdkVersion project.targetSdkVersion
         resConfigs "zh", "en"
@@ -54,7 +54,6 @@ android {
             zipAlignEnabled true
         }
         debug {
-            applicationIdSuffix '.debug'
             debuggable true
             minifyEnabled false
         }
