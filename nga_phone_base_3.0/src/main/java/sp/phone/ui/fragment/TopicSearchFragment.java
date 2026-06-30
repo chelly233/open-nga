@@ -258,7 +258,8 @@ public class TopicSearchFragment extends BaseFragment implements View.OnClickLis
 
             ArticleListParam param = new ArticleListParam();
             param.tid = info.getTid();
-            param.page = info.getPage();
+            ThreadPageInfo history = TopicHistoryManager.getInstance().findTopicHistory(info.getTid());
+            param.page = history != null && history.getPage() > 1 ? history.getPage() : 1;
             param.title = StringUtils.unEscapeHtml(info.getSubject());
             if (requestParam.searchPost != 0) {
                 param.pid = info.getPid();
@@ -273,6 +274,7 @@ public class TopicSearchFragment extends BaseFragment implements View.OnClickLis
             intent.putExtras(bundle);
             intent.setClass(context, PhoneConfiguration.getInstance().articleActivityClass);
             context. startActivity(intent);
+            info.setPage(param.page);
             TopicHistoryManager.getInstance().addTopicHistory(info);
         }
     }

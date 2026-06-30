@@ -35,6 +35,7 @@ import gov.anzong.androidnga.activity.WebViewActivity;
 import gov.anzong.androidnga.arouter.ARouterConstants;
 import gov.anzong.androidnga.base.widget.TabLayoutEx;
 import sp.phone.common.PhoneConfiguration;
+import sp.phone.common.TopicHistoryManager;
 import sp.phone.common.UserManagerImpl;
 import sp.phone.mvp.viewmodel.ArticleShareViewModel;
 import sp.phone.param.ArticleListParam;
@@ -120,9 +121,14 @@ public class ArticleTabFragment extends BaseRxFragment {
         mPagerAdapter = new ArticlePagerAdapter(getChildFragmentManager(), mRequestParam);
         mViewPager.setOffscreenPageLimit(1);
         mViewPager.setAdapter(mPagerAdapter);
+        if (mRequestParam.page > 1) {
+            mViewPager.setCurrentItem(mRequestParam.page - 1);
+        }
+        updateHistoryPage(mViewPager.getCurrentItem());
         mViewPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
             @Override
             public void onPageSelected(int position) {
+                updateHistoryPage(position);
                 mBehavior.animateIn(mFam);
                 super.onPageSelected(position);
             }
@@ -136,6 +142,14 @@ public class ArticleTabFragment extends BaseRxFragment {
             return true;
         });
         super.onViewCreated(view, savedInstanceState);
+    }
+
+    private void updateHistoryPage(int position) {
+        if (mRequestParam == null || mRequestParam.pid != 0 || mRequestParam.searchPost != 0) {
+            return;
+        }
+        mRequestParam.page = position + 1;
+        TopicHistoryManager.getInstance().updateTopicPage(mRequestParam.tid, mRequestParam.page);
     }
 
     private void updateFloatingMenu() {

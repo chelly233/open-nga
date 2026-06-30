@@ -28,6 +28,9 @@ public class ArticlePagerAdapter extends FragmentStatePagerAdapter {
     public ArticlePagerAdapter(FragmentManager fm, ArticleListParam param) {
         super(fm, BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT);
         mRequestParam = param;
+        if (param.page > 1) {
+            mCount = param.page;
+        }
     }
 
     @Override

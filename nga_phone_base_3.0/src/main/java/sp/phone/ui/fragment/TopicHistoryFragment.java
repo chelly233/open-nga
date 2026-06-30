@@ -2,6 +2,7 @@ package sp.phone.ui.fragment;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -10,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SearchView;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -43,6 +45,8 @@ public class TopicHistoryFragment extends BaseFragment implements View.OnClickLi
     private RecyclerViewEx mListView;
 
     private TopicHistoryManager mTopicHistoryManager;
+
+    private String mQuery = "";
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -80,26 +84,67 @@ public class TopicHistoryFragment extends BaseFragment implements View.OnClickLi
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
                 if (position >= 0) {
-                    mTopicHistoryManager.removeTopicHistory(position);
-                    mTopicListAdapter.removeItem(position);
+                    ThreadPageInfo topic = mTopicListAdapter.getItem(position);
+                    mTopicHistoryManager.removeTopicHistory(topic);
+                    refreshData();
                 }
 
             }
         });
         //将recycleView和ItemTouchHelper绑定
         touchHelper.attachToRecyclerView(mListView);
-        setData(mTopicHistoryManager.getTopicHistoryList());
+        refreshData();
     }
 
     private void setData(List<ThreadPageInfo> topicLIst) {
         TopicListInfo listInfo = new TopicListInfo();
         listInfo.setThreadPageList(topicLIst);
+        mTopicListAdapter.clear();
         mTopicListAdapter.setData(listInfo.getThreadPageList());
+    }
+
+    private void refreshData() {
+        setData(mTopicHistoryManager.searchTopicHistory(mQuery));
     }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.settings_black_list_option_menu, menu);
+        inflater.inflate(R.menu.menu_search, menu);
+        MenuItem searchItem = menu.findItem(R.id.menu_search);
+        SearchView searchView = (SearchView) searchItem.getActionView();
+        searchView.setQueryHint(getString(R.string.search));
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                filter(query);
+                searchView.clearFocus();
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                filter(newText);
+                return true;
+            }
+        });
+        searchItem.setOnActionExpandListener(new MenuItem.OnActionExpandListener() {
+            @Override
+            public boolean onMenuItemActionExpand(MenuItem item) {
+                return true;
+            }
+
+            @Override
+            public boolean onMenuItemActionCollapse(MenuItem item) {
+                filter("");
+                return true;
+            }
+        });
+    }
+
+    private void filter(String query) {
+        mQuery = TextUtils.isEmpty(query) ? "" : query.trim();
+        refreshData();
     }
 
     @Override
@@ -107,7 +152,7 @@ public class TopicHistoryFragment extends BaseFragment implements View.OnClickLi
         if (item.getItemId() == R.id.menu_delete_all) {
             ConfirmDialog.Companion.showConfirmDialog(getActivity(), "确认删除所有浏览历史吗", () -> {
                 mTopicHistoryManager.removeAllTopicHistory();
-                mTopicListAdapter.clear();
+                filter("");
             });
             return true;
         } else {

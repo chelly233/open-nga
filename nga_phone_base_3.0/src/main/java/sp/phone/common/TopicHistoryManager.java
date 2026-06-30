@@ -2,6 +2,7 @@ package sp.phone.common;
 
 import android.content.Context;
 import android.preference.PreferenceManager;
+import android.text.TextUtils;
 
 import com.alibaba.fastjson.JSON;
 
@@ -52,6 +53,47 @@ public class TopicHistoryManager {
         }
         mTopicList.add(0,topic);
         commit();
+    }
+
+    public ThreadPageInfo findTopicHistory(int tid) {
+        for (ThreadPageInfo topic : mTopicList) {
+            if (topic.getTid() == tid && topic.getPid() == 0) {
+                return topic;
+            }
+        }
+        return null;
+    }
+
+    public void updateTopicPage(int tid, int page) {
+        if (tid == 0 || page <= 0) {
+            return;
+        }
+        ThreadPageInfo topic = findTopicHistory(tid);
+        if (topic != null && topic.getPage() != page) {
+            topic.setPage(page);
+            commit();
+        }
+    }
+
+    public List<ThreadPageInfo> searchTopicHistory(String query) {
+        if (TextUtils.isEmpty(query)) {
+            return mTopicList;
+        }
+        String lowerQuery = query.toLowerCase();
+        List<ThreadPageInfo> result = new ArrayList<>();
+        for (ThreadPageInfo topic : mTopicList) {
+            if (containsIgnoreCase(topic.getSubject(), lowerQuery)
+                    || containsIgnoreCase(topic.getAuthor(), lowerQuery)
+                    || containsIgnoreCase(topic.getLastPoster(), lowerQuery)
+                    || String.valueOf(topic.getTid()).contains(query)) {
+                result.add(topic);
+            }
+        }
+        return result;
+    }
+
+    private boolean containsIgnoreCase(String value, String lowerQuery) {
+        return value != null && value.toLowerCase().contains(lowerQuery);
     }
 
     public void removeTopicHistory(ThreadPageInfo topic) {

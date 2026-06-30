@@ -10,6 +10,8 @@ import androidx.fragment.app.FragmentManager;
 import com.alibaba.android.arouter.facade.annotation.Route;
 
 import gov.anzong.androidnga.arouter.ARouterConstants;
+import sp.phone.common.TopicHistoryManager;
+import sp.phone.mvp.model.entity.ThreadPageInfo;
 import sp.phone.param.ArticleListParam;
 import sp.phone.param.ParamKey;
 import sp.phone.ui.fragment.ArticleSearchFragment;
@@ -68,7 +70,24 @@ public class ArticleListActivity extends BaseActivity {
             }
         }
 
+        if (param != null) {
+            applyHistoryPage(param, url);
+        }
         return param;
+    }
+
+    private void applyHistoryPage(ArticleListParam param, String url) {
+        if (param.tid == 0 || param.pid != 0 || param.searchPost != 0) {
+            return;
+        }
+        boolean hasExplicitPage = url != null && url.contains("page=");
+        if (hasExplicitPage || param.page > 1) {
+            return;
+        }
+        ThreadPageInfo history = TopicHistoryManager.getInstance().findTopicHistory(param.tid);
+        if (history != null && history.getPage() > 1) {
+            param.page = history.getPage();
+        }
     }
 
     @Override
