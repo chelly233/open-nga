@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.LongSparseArray;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -15,11 +16,14 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.FragmentManager;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.alibaba.android.arouter.launcher.ARouter;
 
 import java.text.MessageFormat;
+import java.util.List;
+import java.util.Objects;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -71,9 +75,17 @@ public class ArticleListAdapter extends RecyclerView.Adapter<ArticleListAdapter.
 
     private ThemeManager mThemeManager = ThemeManager.getInstance();
 
-    private LocalWebView[] mLocalWebViews = new LocalWebView[20];
+    private final LongSparseArray<LocalWebView> mLocalWebViews = new LongSparseArray<>();
 
     private String mTopicOwner;
+
+    private int mAvatarSize;
+
+    private int mTopicContentSize;
+
+    private int mAccentColor;
+
+    private boolean mAvatarLoadEnabled;
 
     private View.OnClickListener mOnClientClickListener = new View.OnClickListener() {
         @Override
@@ -374,6 +386,8 @@ public class ArticleListAdapter extends RecyclerView.Adapter<ArticleListAdapter.
             HtmlUtils.initStaticStrings(mContext);
         }
         mLayoutInflater = LayoutInflater.from(mContext);
+        setHasStableIds(true);
+        updateDisplayConfig();
     }
 
     public void setTopicOwner(String topicOwner) {
@@ -382,6 +396,65 @@ public class ArticleListAdapter extends RecyclerView.Adapter<ArticleListAdapter.
 
     public void setData(ThreadData data) {
         mData = data;
+    }
+
+    public void submitData(ThreadData data) {
+        updateDisplayConfig();
+        if (mData == null || mData.getRowList() == null || data == null || data.getRowList() == null) {
+            mData = data;
+            notifyDataSetChanged();
+            return;
+        }
+
+        List<ThreadRowInfo> oldRows = mData.getRowList();
+        List<ThreadRowInfo> newRows = data.getRowList();
+        DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override
+            public int getOldListSize() {
+                return oldRows.size();
+            }
+
+            @Override
+            public int getNewListSize() {
+                return newRows.size();
+            }
+
+            @Override
+            public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+                return getRowId(oldRows.get(oldItemPosition), oldItemPosition)
+                        == getRowId(newRows.get(newItemPosition), newItemPosition);
+            }
+
+            @Override
+            public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+                ThreadRowInfo oldRow = oldRows.get(oldItemPosition);
+                ThreadRowInfo newRow = newRows.get(newItemPosition);
+                return oldRow.getScore() == newRow.getScore()
+                        && oldRow.getScore_2() == newRow.getScore_2()
+                        && oldRow.getLou() == newRow.getLou()
+                        && oldRow.getAuthorid() == newRow.getAuthorid()
+                        && Objects.equals(oldRow.getAuthor(), newRow.getAuthor())
+                        && Objects.equals(oldRow.getPostdate(), newRow.getPostdate())
+                        && Objects.equals(oldRow.getContent(), newRow.getContent())
+                        && Objects.equals(oldRow.getFormattedHtmlData(), newRow.getFormattedHtmlData())
+                        && Objects.equals(oldRow.getJs_escap_avatar(), newRow.getJs_escap_avatar())
+                        && Objects.equals(oldRow.getFromClientModel(), newRow.getFromClientModel())
+                        && Objects.equals(oldRow.getMemberGroup(), newRow.getMemberGroup())
+                        && Objects.equals(oldRow.getPostCount(), newRow.getPostCount())
+                        && oldRow.getReputation() == newRow.getReputation();
+            }
+        });
+        mData = data;
+        trimWebViewCache(newRows);
+        diffResult.dispatchUpdatesTo(this);
+    }
+
+    private void updateDisplayConfig() {
+        PhoneConfiguration configuration = PhoneConfiguration.getInstance();
+        mAvatarSize = configuration.getAvatarSize();
+        mTopicContentSize = configuration.getTopicContentSize();
+        mAvatarLoadEnabled = configuration.isAvatarLoadEnabled();
+        mAccentColor = mThemeManager.getAccentColor(mContext);
     }
 
     public void setSupportListener(View.OnClickListener listener) {
@@ -407,7 +480,7 @@ public class ArticleListAdapter extends RecyclerView.Adapter<ArticleListAdapter.
         View view = mLayoutInflater.inflate(R.layout.fragment_article_list_item, parent, false);
         ArticleViewHolder viewHolder = new ArticleViewHolder(view);
         ViewGroup.LayoutParams lp = viewHolder.avatarIv.getLayoutParams();
-        lp.width = lp.height = PhoneConfiguration.getInstance().getAvatarSize();
+        lp.width = lp.height = mAvatarSize;
         if (viewType == VIEW_TYPE_WEB_VIEW) {
             viewHolder.contentTextView.setVisibility(View.GONE);
             // viewHolder.contentTV.setVisibility(View.VISIBLE);
@@ -422,7 +495,7 @@ public class ArticleListAdapter extends RecyclerView.Adapter<ArticleListAdapter.
         RxUtils.clicks(viewHolder.clientIv, mOnClientClickListener);
         RxUtils.clicks(viewHolder.menuIv, mMenuTogglerListener);
         RxUtils.clicks(viewHolder.avatarPanel, mOnAvatarClickListener);
-        viewHolder.contentTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, PhoneConfiguration.getInstance().getTopicContentSize());
+        viewHolder.contentTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, mTopicContentSize);
         // viewHolder.contentTV.setTextSize(PhoneConfiguration.getInstance().getTopicContentSize());
         return viewHolder;
     }
@@ -451,8 +524,7 @@ public class ArticleListAdapter extends RecyclerView.Adapter<ArticleListAdapter.
         onBindDeviceType(holder.clientIv, row);
         onBindContentView(holder, row, position);
 
-        int fgColor = mThemeManager.getAccentColor(mContext);
-        FunctionUtils.handleNickName(row, fgColor, holder.nickNameTV, mTopicOwner, mContext);
+        FunctionUtils.handleNickName(row, mAccentColor, holder.nickNameTV, mTopicOwner, mContext);
 
         holder.floorTv.setText(MessageFormat.format("[{0} 楼]", String.valueOf(row.getLou())));
         holder.postTimeTv.setText(row.getPostdate());
@@ -474,23 +546,19 @@ public class ArticleListAdapter extends RecyclerView.Adapter<ArticleListAdapter.
     private void onBindContentView(ArticleViewHolder holder, ThreadRowInfo row, int position) {
         String html = row.getFormattedHtmlData();
         if (html != null) {
-            if (mLocalWebViews != null) {
-                LocalWebView localWebView = mLocalWebViews[position];
-                if (localWebView == null) {
-                    localWebView = createLocalWebView();
-                    mLocalWebViews[position] = localWebView;
+            long rowId = getRowId(row, position);
+            LocalWebView localWebView = mLocalWebViews.get(rowId);
+            if (localWebView == null) {
+                localWebView = createLocalWebView();
+                mLocalWebViews.put(rowId, localWebView);
+            }
+            if (localWebView != holder.contentTV) {
+                holder.contentContainer.removeView(holder.contentTV);
+                if (localWebView.getParent() != null) {
+                    ((ViewGroup) localWebView.getParent()).removeView(localWebView);
                 }
-                if (localWebView != holder.contentTV) {
-                    holder.contentContainer.removeView(holder.contentTV);
-                    if (localWebView.getParent() != null) {
-                        ((ViewGroup) localWebView.getParent()).removeView(localWebView);
-                    }
-                    holder.contentTV = localWebView;
-                    holder.contentContainer.addView(localWebView);
-                }
-            } else if (holder.contentTV == null) {
-                holder.contentTV = createLocalWebView();
-                holder.contentContainer.addView(holder.contentTV);
+                holder.contentTV = localWebView;
+                holder.contentContainer.addView(localWebView);
             }
             holder.contentTV.getWebViewClientEx().setImgUrls(row.getImageUrls());
             holder.contentTV.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
@@ -526,19 +594,51 @@ public class ArticleListAdapter extends RecyclerView.Adapter<ArticleListAdapter.
 
     @Override
     public long getItemId(int position) {
-        return position;
+        if (mData == null || mData.getRowList() == null || position >= mData.getRowList().size()) {
+            return RecyclerView.NO_ID;
+        }
+        return getRowId(mData.getRowList().get(position), position);
     }
 
     @Override
     public int getItemCount() {
-        return mData == null ? 0 : mData.getRowNum();
+        return mData == null || mData.getRowList() == null ? 0 : mData.getRowList().size();
     }
 
     private void onBindAvatarView(ImageView avatarIv, ThreadRowInfo row) {
         final String avatarUrl = FunctionUtils.parseAvatarUrl(row.getJs_escap_avatar());
-        final boolean downImg = PhoneConfiguration.getInstance().isAvatarLoadEnabled();
 
-        ImageUtils.loadRoundCornerAvatar(avatarIv, avatarUrl, !downImg);
+        ImageUtils.loadRoundCornerAvatar(avatarIv, avatarUrl, !mAvatarLoadEnabled);
+    }
+
+    private long getRowId(ThreadRowInfo row, int position) {
+        if (row == null) {
+            return position;
+        }
+        if (row.getPid() != 0) {
+            return row.getPid();
+        }
+        return (((long) row.getTid()) << 32) ^ (row.getLou() & 0xffffffffL);
+    }
+
+    private void trimWebViewCache(List<ThreadRowInfo> rows) {
+        for (int i = mLocalWebViews.size() - 1; i >= 0; i--) {
+            long key = mLocalWebViews.keyAt(i);
+            boolean found = false;
+            for (int j = 0; j < rows.size(); j++) {
+                if (getRowId(rows.get(j), j) == key) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                LocalWebView webView = mLocalWebViews.valueAt(i);
+                if (webView.getParent() != null) {
+                    ((ViewGroup) webView.getParent()).removeView(webView);
+                }
+                mLocalWebViews.removeAt(i);
+            }
+        }
     }
 
 }

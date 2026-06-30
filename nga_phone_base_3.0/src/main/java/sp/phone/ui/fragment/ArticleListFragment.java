@@ -326,8 +326,7 @@ public class ArticleListFragment extends BaseMvpFragment<ArticleListPresenter> i
         if (mRequestParam.authorId == 0 && mRequestParam.searchPost == 0) {
             mArticleAdapter.setTopicOwner(viewModel.getTopicOwner().getValue());
         }
-        mArticleAdapter.setData(data);
-        mArticleAdapter.notifyDataSetChanged();
+        mArticleAdapter.submitData(data);
 
     }
 

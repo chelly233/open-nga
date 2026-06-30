@@ -6,6 +6,8 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -79,6 +81,18 @@ public class ArticleTabFragment extends BaseRxFragment {
 
     private ScrollAwareFamBehavior mBehavior;
 
+    private final Handler mHistoryHandler = new Handler(Looper.getMainLooper());
+
+    private final Runnable mUpdateHistoryRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (mRequestParam == null || mRequestParam.pid != 0 || mRequestParam.searchPost != 0) {
+                return;
+            }
+            TopicHistoryManager.getInstance().updateTopicPage(mRequestParam.tid, mRequestParam.page);
+        }
+    };
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -149,7 +163,14 @@ public class ArticleTabFragment extends BaseRxFragment {
             return;
         }
         mRequestParam.page = position + 1;
-        TopicHistoryManager.getInstance().updateTopicPage(mRequestParam.tid, mRequestParam.page);
+        mHistoryHandler.removeCallbacks(mUpdateHistoryRunnable);
+        mHistoryHandler.postDelayed(mUpdateHistoryRunnable, 500);
+    }
+
+    @Override
+    public void onDestroyView() {
+        mHistoryHandler.removeCallbacks(mUpdateHistoryRunnable);
+        super.onDestroyView();
     }
 
     private void updateFloatingMenu() {

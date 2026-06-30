@@ -29,6 +29,14 @@ public class TopicHistoryManager {
 
     private static final int MAX_HISTORY_TOPIC_COUNT = 500;
 
+    private static final long UPDATE_PAGE_INTERVAL_MS = 1000;
+
+    private int mLastUpdatedTid;
+
+    private int mLastUpdatedPage;
+
+    private long mLastUpdatePageTime;
+
     private static class SingleTonHolder {
 
         private static TopicHistoryManager sInstance = new TopicHistoryManager();
@@ -88,6 +96,15 @@ public class TopicHistoryManager {
         if (tid == 0 || page <= 0) {
             return;
         }
+        long now = System.currentTimeMillis();
+        if (mLastUpdatedTid == tid
+                && mLastUpdatedPage == page
+                && now - mLastUpdatePageTime < UPDATE_PAGE_INTERVAL_MS) {
+            return;
+        }
+        mLastUpdatedTid = tid;
+        mLastUpdatedPage = page;
+        mLastUpdatePageTime = now;
         mTopicHistoryDao.updateTopicPage(tid, page, System.currentTimeMillis());
         reloadTopicHistory();
     }
