@@ -40,10 +40,10 @@ project.ext {
 
     lifecycle_version = "2.2.0"
 
-    androidxAppcompat = '1.2.0-alpha03'
-    androidxMaterial = '1.2.0'
+    androidxAppcompat = '1.6.1'
+    androidxMaterial = '1.12.0'
 
     room_version = "2.6.1"
 
-    preference_version = "1.1.1"
+    preference_version = "1.2.1"
 }

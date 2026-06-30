@@ -2,6 +2,8 @@
 
 更新时间：2026-06-30
 
+> 状态：本规划已按分阶段方案**执行完成**。实际落地结果、踩坑与修复、真机验证、遗留技术债见文末「实施记录（已完成）」。下文为原始评估与规划，保留备查。
+
 ## 当前状态
 
 - 当前运行 JDK：OpenJDK 17.0.19。
@@ -212,4 +214,89 @@ targetSdkVersion = 35
 3. `compileSdk` 升到 35。
 4. `targetSdk` 升到 35。
 5. 最后处理权限与依赖现代化。
+
+---
+
+# 实施记录（已完成）
+
+执行分支：`upgrade/jdk17-target35`。真机验证设备：小米 `2509FPN0BC`，Android 16（SDK 36），arm64-v8a。
+
+## 最终版本
+
+| 项目 | 升级前 | 升级后 |
+|---|---|---|
+| Gradle Wrapper | 7.3 | 8.9 |
+| Android Gradle Plugin | 7.0.4 | 8.6.1 |
+| Kotlin Gradle Plugin | 1.5.0 | 1.9.24 |
+| compileSdkVersion | 31 | 35 |
+| targetSdkVersion | 31 | 35 |
+| minSdkVersion | 26 | 26（不变） |
+| Java 源码级别 | 8 | 8（不变） |
+| Room | 2.4.1 | 2.6.1 |
+| ARouter api / compiler | 1.2.4 / 1.1.4 | 1.5.2 / 1.5.2 |
+| AppCompat | 1.2.0-alpha03 | 1.6.1 |
+| Material | 1.2.0 | 1.12.0 |
+| Core KTX | 1.3.0 | 1.13.1 |
+| Preference | 1.1.1 | 1.2.1 |
+| Glide | 4.11.0 | 4.16.0 |
+| `com.android.databinding:viewbinding:4.0.1` | 显式依赖 | 移除（用 AGP 内置） |
+
+## 阶段 2/3 实际踩坑与修复
+
+升级构建链时 compileSdk 被 Room 2.6.1 的传递依赖强制要求 ≥34，故阶段 2、3 实际合并完成。逐个修复项：
+
+| 问题 | 处理 |
+|---|---|
+| 4 个库 module 缺 `namespace` | `lib_common/lib_cloud/lib_core/lib_base_logger` 补 `namespace`，并删除 manifest 的 `package=` |
+| `lintOptions` 已废弃 | 迁移为 `lint {}` |
+| AGP 8 默认关闭 `BuildConfig` | app + lib_cloud + lib_common + lib_base_logger 各加 `buildFeatures { buildConfig true }` |
+| Kotlin 1.9 + AGP 8 的 JVM target 一致性 | app、lib_common 显式 `kotlinOptions { jvmTarget = '1.8' }` |
+| 跨库 R 引用失败（`lib_common` 引用 signseekbar 的 `R.styleable`） | `gradle.properties` 设 `android.nonTransitiveRClass=false`（兼容开关，见技术债） |
+| `switch(R.id)` / ButterKnife `@BindView(R.id.x)` 报「需要常量表达式」 | `gradle.properties` 设 `android.nonFinalResIds=false`（兼容开关，见技术债） |
+| ARouter 1.5.2 compiler 参数名变更 | 注解处理参数 `moduleName` → `AROUTER_MODULE_NAME` |
+| Room 2.6 禁止 `@Insert` 可空数组参数 | `NoteDao.updateNotes(vararg users: NoteInfo?)` 改为非空 `NoteInfo` |
+
+阶段 2/3 验收：`assembleDebug`、`lintDebug` 均 BUILD SUCCESSFUL。
+
+## 阶段 4 实际改动（target 35 行为）
+
+| 文件 | 改动 |
+|---|---|
+| `build.gradle` | `targetSdkVersion = 35` |
+| `DeviceUtils` | 新增 `isGreaterEqual_13_0()` |
+| `AndroidManifest.xml` | `WRITE_EXTERNAL_STORAGE` 加 `maxSdkVersion=29`；`READ_EXTERNAL_STORAGE` 加 `maxSdkVersion=32`；新增 `READ_MEDIA_IMAGES`、`POST_NOTIFICATIONS` |
+| `SaveImageTask` | 保存图片重写为 MediaStore（Android 10+），≤9 走传统文件 + 媒体扫描；`DownloadResult.file` 保留为可分享的下载缓存文件 |
+| `MainActivity` | 启动权限申请：13+ 申请 `POST_NOTIFICATIONS`，≤28 才申请存储 |
+| `ImageZoomActivity` | 保存图片在 10+ 跳过存储权限申请（MediaStore 无需） |
+| `TopicPostPresenter` | 选图前不再申请 `WRITE_EXTERNAL_STORAGE`（修复 13+ 选图器打不开、无法发图的硬断点）；编辑器内缩略图改用 `ContentResolver` 按流解码，兼容 scoped storage |
+| `TopicListPresenter` | 缓存导入不再申请 `WRITE_EXTERNAL_STORAGE`（`ACTION_GET_CONTENT` 本不需要） |
+
+### 系统栏沉浸（target 35 强制 edge-to-edge 的连带处理）
+
+target 35 起 Android 强制 edge-to-edge、忽略 `statusBarColor`，导致状态栏露出窗口背景色。因项目仍 target 35，采用临时退出强制的轻量方案（`nga_phone_base_3.0/src/main/res/values/styles.xml` 的 `AppThemeDayNight`）：
+
+- `android:windowOptOutEdgeToEdgeEnforcement = true` —— 恢复状态栏着色，标题栏位置正确。
+- `android:navigationBarColor = @android:color/transparent` + `android:enforceNavigationBarContrast = false` —— 导航条透明、去除系统对比度蒙层，与界面背景融合。
+
+注意：`windowOptOutEdgeToEdgeEnforcement` 的有效性绑定 targetSdk < 36，将来升 target 36 时失效，必须改为真正的 WindowInsets 适配（见技术债）。期间曾尝试 `windowTranslucentNavigation` / `SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION` 让内容滚到导航条后方，均会破坏 AppCompat ActionBar 的顶部 inset（标题栏顶进状态栏），已放弃，保持轻量方案。
+
+### 真机验证结果（Android 16）
+
+- 启动无崩溃；`POST_NOTIFICATIONS`、`READ_MEDIA_IMAGES` 运行时已授权；旧存储权限因 `maxSdkVersion` 在 SDK 36 上被正确剥离。
+- 帖子列表 / 帖子详情渲染正常（依赖升级后控件样式无回归）。
+- 状态栏绿色沉浸、标题栏（菜单 + 标题 + 搜索 + 溢出）显示正确、导航条透明融背景。
+
+## 遗留技术债 / 后续事项
+
+1. **兼容开关**（`gradle.properties`）：`nonTransitiveRClass=false`、`nonFinalResIds=false` 是为「跨库 R 引用」和「ButterKnife/switch-case 常量 R」临时恢复旧行为。彻底现代化需逐库改非传递 R 并显式 import 依赖 R，且配合 ButterKnife 迁移。
+2. **edge-to-edge 完整适配**：当前靠 `windowOptOutEdgeToEdgeEnforcement` 临时退出。升 target 36 前必须改为真正的 insets 处理（给 ActionBar 容器补状态栏 padding、给各列表补底部 padding），才能同时拿到「绿状态栏 + 正确标题栏 + 真透明导航条」。
+3. **缓存导出**：`TopicListPresenter` 导出 zip 到公共 Downloads 目录，scoped storage 下已失效，现优雅提示「无存储权限」。要修需改 MediaStore Downloads 或 SAF。
+4. **`SettingsLabFragment`** 仍有一处 `WRITE_EXTERNAL_STORAGE` 检查（调试/日志相关），Android 13+ 拿不到权限，低优先级。
+5. **ButterKnife → ViewBinding**：实测 19 个文件、83 个 `@BindView`、6 个 `@OnClick`。当前保留可用，建议「碰到哪个界面顺手迁哪个」渐进替换；迁完即可去掉 `nonFinalResIds=false`。
+6. **闭源 SDK**（`lib_cloud` 的 umeng 9.3.8 / bugly 3.1.9）：不可控外部依赖，后续上架前需单独验证 target 35 兼容性。
+
+## 待办
+
+- 阶段 4（行为改造）与阶段 5（依赖清理）建议分两个 commit 提交。
+- 手动真机回归剩余项：保存图片到相册、从相册发帖选图、通知点击跳转、夜间模式底部表现。
 
