@@ -30,7 +30,10 @@ public class ArticleWebConvertFactory {
             }
             int tid = findInt(html, "__CURRENT_TID\\s*=\\s*(-?\\d+)", 0);
             int fid = findInt(html, "__CURRENT_FID\\s*=\\s*(-?\\d+)", 0);
-            int rows = findInt(html, "__CURRENT_PAGE_POSTS\\s*=\\s*(-?\\d+)", 0);
+            int pageRows = findInt(html, "__CURRENT_PAGE_POSTS\\s*=\\s*(-?\\d+)", 0);
+            TopicDefaults topicDefaults = parseTopicDefaults(html);
+            int replies = topicDefaults == null ? Math.max(0, pageRows - 1) : topicDefaults.replies;
+            int totalRows = replies + 1;
             String subject = firstText(html, "<h1>\\s*<a[^>]*>(.*?)</a>\\s*</h1>");
             Map<Integer, JSONObject> users = parseUsers(html);
 
@@ -70,13 +73,13 @@ public class ArticleWebConvertFactory {
             threadInfo.setSubject(TextUtils.isEmpty(subject) ? rowList.get(0).getSubject() : subject);
             threadInfo.setAuthorId(rowList.get(0).getAuthorid());
             threadInfo.setAuthor(rowList.get(0).getAuthor());
-            threadInfo.setReplies(Math.max(0, rows - 1));
+            threadInfo.setReplies(replies);
 
             ThreadData data = new ThreadData();
             data.setRawData(html);
             data.setThreadInfo(threadInfo);
             data.setRowList(rowList);
-            data.set__ROWS(rows == 0 ? rowList.size() : rows);
+            data.set__ROWS(totalRows <= 0 ? rowList.size() : totalRows);
             data.setRowNum(rowList.size());
             return data;
         } catch (Exception e) {
@@ -123,6 +126,26 @@ public class ArticleWebConvertFactory {
             NLog.e(TAG, "can not parse web users: " + e.getMessage());
         }
         return users;
+    }
+
+    private static TopicDefaults parseTopicDefaults(String html) {
+        int index = html.indexOf("commonui.postArg.setDefault(");
+        if (index < 0) {
+            return null;
+        }
+        int start = index + "commonui.postArg.setDefault(".length();
+        int end = findMatchingParen(html, start - 1);
+        if (end <= start) {
+            return null;
+        }
+        List<String> args = splitArguments(html.substring(start, end));
+        if (args.size() < 14) {
+            return null;
+        }
+        TopicDefaults defaults = new TopicDefaults();
+        defaults.replies = parseInt(normalizeArg(args.get(11)), 0);
+        defaults.rowsPerPage = parseInt(normalizeArg(args.get(13)), 20);
+        return defaults;
     }
 
     private static List<List<String>> parsePostArgs(String html) {
@@ -253,5 +276,10 @@ public class ArticleWebConvertFactory {
         } catch (NumberFormatException e) {
             return defaultValue;
         }
+    }
+
+    private static class TopicDefaults {
+        int replies;
+        int rowsPerPage;
     }
 }
