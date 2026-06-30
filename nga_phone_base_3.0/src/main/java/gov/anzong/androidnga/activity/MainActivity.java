@@ -17,6 +17,7 @@ import com.alibaba.android.arouter.launcher.ARouter;
 import gov.anzong.androidnga.NgaClientApp;
 import gov.anzong.androidnga.R;
 import gov.anzong.androidnga.arouter.ARouterConstants;
+import gov.anzong.androidnga.base.util.DeviceUtils;
 import gov.anzong.androidnga.base.util.PermissionUtils;
 import gov.anzong.androidnga.base.util.ThemeUtils;
 import sp.phone.common.User;
@@ -62,7 +63,13 @@ public class MainActivity extends BaseActivity {
     }
 
     private void checkPermission() {
-        PermissionUtils.request(this, null, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (DeviceUtils.isGreaterEqual_13_0()) {
+            // Android 13+ 通知需要运行时授权；存储改用 MediaStore，无需申请写权限
+            PermissionUtils.request(this, null, Manifest.permission.POST_NOTIFICATIONS);
+        } else if (!DeviceUtils.isGreaterEqual_10_0()) {
+            // Android 9 及以下保存图片仍依赖传统外部存储写权限
+            PermissionUtils.request(this, null, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
     }
 
     private void checkNewVersion() {

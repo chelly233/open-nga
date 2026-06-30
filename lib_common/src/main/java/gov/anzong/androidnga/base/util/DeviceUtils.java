@@ -39,6 +39,10 @@ public class DeviceUtils {
         return android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
     }
 
+    public static boolean isGreaterEqual_13_0() {
+        return android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU;
+    }
+
     public static boolean isWifiConnected(Context context) {
         try {
             ConnectivityManager conMan = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);

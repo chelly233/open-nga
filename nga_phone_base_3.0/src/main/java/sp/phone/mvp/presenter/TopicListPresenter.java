@@ -298,24 +298,15 @@ public class TopicListPresenter extends ViewModel implements LifecycleObserver {
     }
 
     public void showFileChooser(Fragment fragment) {
-        PermissionUtils.request(fragment, new BaseSubscriber<Boolean>() {
-            @Override
-            public void onNext(Boolean aBoolean) {
-                if (aBoolean) {
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                        intent.addCategory(Intent.CATEGORY_OPENABLE);
-                        intent.setType("*/*");
-                        fragment.startActivityForResult(intent, TopicCacheFragment.REQUEST_IMPORT_CACHE);
-                    } catch (ActivityNotFoundException e) {
-                        ToastUtils.warn("系统不支持导入");
-                    }
-                } else {
-                    ToastUtils.warn("无存储权限，无法导入！");
-                }
-            }
-        }, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-
+        // 系统选择器（ACTION_GET_CONTENT）不需要存储权限，直接打开，避免 Android 13+ 因权限被拒而无法导入。
+        try {
+            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            fragment.startActivityForResult(intent, TopicCacheFragment.REQUEST_IMPORT_CACHE);
+        } catch (ActivityNotFoundException e) {
+            ToastUtils.warn("系统不支持导入");
+        }
     }
 
     public void importCacheTopic(Uri uri) {

@@ -12,6 +12,7 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.style.ImageSpan;
+import android.content.ContentResolver;
 import android.util.DisplayMetrics;
 
 import androidx.preference.PreferenceManager;
@@ -119,16 +120,9 @@ public class TopicPostPresenter extends BasePresenter<TopicPostFragment, TopicPo
 
     @Override
     public void showFilePicker() {
-        PermissionUtils.request(mBaseView, new BaseSubscriber<Boolean>() {
-
-            @Override
-            public void onNext(Boolean aBoolean) {
-                if (aBoolean != null && aBoolean) {
-                    mBaseView.showFilePicker();
-                }
-
-            }
-        }, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        // 系统选择器（ACTION_GET_CONTENT / Photo Picker）不需要存储权限，直接打开。
+        // 旧实现先申请 WRITE_EXTERNAL_STORAGE，在 Android 13+ 该权限被直接拒绝，导致无法发图。
+        mBaseView.showFilePicker();
     }
 
     @Override
@@ -230,21 +224,42 @@ public class TopicPostPresenter extends BasePresenter<TopicPostFragment, TopicPo
     }
 
     private void finishUpload(String picUrl, Uri uri) {
-        String selectedImagePath2 = FunctionUtils.getPath(mBaseView.getContext(), uri);
         String spanStr = "[img]./" + picUrl + ".medium.jpg" + "[/img]";
-        if (!StringUtils.isEmpty(selectedImagePath2)) {
+        // 通过 ContentResolver 按流解码缩略图，兼容 scoped storage / Android 13+，
+        // 不再依赖 FunctionUtils.getPath 取真实文件路径（在新版系统上多数 Uri 取不到路径）。
+        Bitmap bitmap = decodeSampledBitmap(uri);
+        if (bitmap != null) {
+            BitmapDrawable bd = new BitmapDrawable(bitmap);
+            bd.setBounds(0, 0, bd.getIntrinsicWidth(), bd.getIntrinsicHeight());
+            SpannableString spanStringS = new SpannableString(spanStr);
+            ImageSpan span = new ImageSpan(bd, ImageSpan.ALIGN_BASELINE);
+            spanStringS.setSpan(span, 0, spanStr.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            mBaseView.insertFile(uri.toString(), spanStringS);
+        } else {
+            // 无法生成预览时退化为直接插入 [img] 标签，发帖上传本身已成功。
+            mBaseView.insertFile(null, picUrl);
+        }
+    }
+
+    private Bitmap decodeSampledBitmap(Uri uri) {
+        try {
+            ContentResolver cr = ContextUtils.getContext().getContentResolver();
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(selectedImagePath2, options);
-            DisplayMetrics dm = ContextUtils.getResources().getDisplayMetrics();
-
-            int screenWidth = (int) (dm.widthPixels * 0.75);
-            int screenHeight = (int) (dm.heightPixels * 0.75);
+            try (InputStream is = cr.openInputStream(uri)) {
+                BitmapFactory.decodeStream(is, null, options);
+            }
             int width = options.outWidth;
             int height = options.outHeight;
+            if (width <= 0 || height <= 0) {
+                return null;
+            }
+            DisplayMetrics dm = ContextUtils.getResources().getDisplayMetrics();
+            int screenWidth = (int) (dm.widthPixels * 0.75);
+            int screenHeight = (int) (dm.heightPixels * 0.75);
             float scaleWidth = ((float) screenWidth) / width;
             float scaleHeight = ((float) screenHeight) / height;
-            if (scaleWidth < scaleHeight && scaleWidth < 1f) {// 不能放大啊,然后主要是哪个小缩放到哪个就行了
+            if (scaleWidth < scaleHeight && scaleWidth < 1f) {
                 options.inSampleSize = (int) (1 / scaleWidth);
             } else if (scaleWidth >= scaleHeight && scaleHeight < 1f) {
                 options.inSampleSize = (int) (1 / scaleHeight);
@@ -252,15 +267,11 @@ public class TopicPostPresenter extends BasePresenter<TopicPostFragment, TopicPo
                 options.inSampleSize = 1;
             }
             options.inJustDecodeBounds = false;
-            Bitmap bitmap = BitmapFactory.decodeFile(selectedImagePath2, options);
-            BitmapDrawable bd = new BitmapDrawable(bitmap);
-            bd.setBounds(0, 0, bd.getIntrinsicWidth(), bd.getIntrinsicHeight());
-            SpannableString spanStringS = new SpannableString(spanStr);
-            ImageSpan span = new ImageSpan(bd, ImageSpan.ALIGN_BASELINE);
-            spanStringS.setSpan(span, 0, spanStr.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-            mBaseView.insertFile(selectedImagePath2, spanStringS);
-        } else {
-            mBaseView.insertFile(selectedImagePath2, picUrl);
+            try (InputStream is2 = cr.openInputStream(uri)) {
+                return BitmapFactory.decodeStream(is2, null, options);
+            }
+        } catch (Exception e) {
+            return null;
         }
     }
 

@@ -119,6 +119,14 @@ public class ImageZoomActivity extends BaseActivity {
     }
 
     private void saveBitmap(OnSimpleHttpCallBack<SaveImageTask.DownloadResult> callBack, String... urls) {
+        if (DeviceUtils.isGreaterEqual_10_0()) {
+            // Android 10+ 通过 MediaStore 保存，无需存储权限
+            if (mSaveImageTask == null) {
+                mSaveImageTask = new SaveImageTask();
+            }
+            mSaveImageTask.execute(callBack, urls);
+            return;
+        }
         new RxPermissions(this)
                 .request(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 .subscribe(granted -> {

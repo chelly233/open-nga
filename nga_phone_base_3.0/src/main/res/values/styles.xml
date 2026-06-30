@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar"/>
 
@@ -9,6 +9,12 @@
         <item name="android:textColor">@color/text_color_selector</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@color/window_background</item>
+        <!-- target 35 起 Android 强制 edge-to-edge，statusBarColor 被忽略，导致状态栏露出窗口背景色。
+             本项目仍 target 35，临时退出强制（升 target 36 前需改为真正的 insets 适配）。 -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
+        <!-- 导航条透明并关闭系统对比度蒙层 -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="29">false</item>
     </style>
 
 
