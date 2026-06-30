@@ -4,6 +4,11 @@ plugins {
 
 android {
     compileSdkVersion project.compileSdkVersion
+    namespace 'gov.anzong.androidnga.base.logger'
+
+    buildFeatures {
+        buildConfig true
+    }
 
     defaultConfig {
         minSdkVersion project.minSdkVersion

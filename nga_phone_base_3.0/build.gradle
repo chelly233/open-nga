@@ -27,7 +27,7 @@ android {
 
         javaCompileOptions {
             annotationProcessorOptions {
-                arguments = [moduleName: project.getName()]
+                arguments = [AROUTER_MODULE_NAME: project.getName()]
             }
         }
 
@@ -39,9 +39,13 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
 
-    viewBinding  {
-        enabled true
+    buildFeatures {
+        viewBinding true
+        buildConfig true
     }
 
     buildTypes {
@@ -59,7 +63,7 @@ android {
         }
     }
 
-    lintOptions {
+    lint {
         abortOnError false
         disable 'MissingTranslation'
     }
@@ -107,8 +111,8 @@ dependencies {
 
     implementation 'com.jakewharton.rxbinding2:rxbinding:2.0.0'
     implementation 'com.trello.rxlifecycle2:rxlifecycle-components:2.1.0'
-    implementation 'com.alibaba:arouter-api:1.2.4'
-    annotationProcessor 'com.alibaba:arouter-compiler:1.1.4'
+    implementation 'com.alibaba:arouter-api:1.5.2'
+    annotationProcessor 'com.alibaba:arouter-compiler:1.5.2'
     implementation 'com.github.tbruyelle:rxpermissions:0.10.2'
     implementation 'com.github.daniel-stoneuk:material-about-library:2.3.0'
     implementation project(':lib_common')

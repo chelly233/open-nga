@@ -4,6 +4,11 @@ plugins {
 
 android {
     compileSdkVersion project.compileSdkVersion
+    namespace 'com.justwen.androidnga.cloud'
+
+    buildFeatures {
+        buildConfig true
+    }
 
     defaultConfig {
         minSdkVersion project.minSdkVersion

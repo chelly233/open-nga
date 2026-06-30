@@ -12,5 +12,5 @@ interface NoteDao {
     fun loadNotes(): List<NoteInfo?>?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun updateNotes(vararg users: NoteInfo?)
+    fun updateNotes(vararg users: NoteInfo)
 }
