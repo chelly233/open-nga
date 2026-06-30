@@ -13,6 +13,18 @@ def isJenkins() {
     return project.hasProperty('IS_JENKINS') && IS_JENKINS == 'true'
 }
 
+def releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+def releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+def releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+def releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+def releaseSigningValues = [releaseKeystorePath, releaseKeystorePassword, releaseKeyAlias, releaseKeyPassword]
+def hasAnyReleaseSigning = releaseSigningValues.any { it }
+def hasReleaseSigning = releaseSigningValues.every { it }
+
+if (hasAnyReleaseSigning && !hasReleaseSigning) {
+    throw new GradleException("Incomplete release signing environment. Set ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD.")
+}
+
 android {
     compileSdkVersion project.compileSdkVersion
     namespace 'gov.anzong.androidnga'
@@ -48,6 +60,17 @@ android {
         buildConfig true
     }
 
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             debuggable false
@@ -56,6 +79,9 @@ android {
             pseudoLocalesEnabled false
             minifyEnabled false
             zipAlignEnabled true
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
         debug {
             debuggable true
