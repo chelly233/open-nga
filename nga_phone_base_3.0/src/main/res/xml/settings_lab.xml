@@ -13,6 +13,12 @@
         android:summary="@string/summary_show_with_webview"
         android:key="@string/pref_show_with_webview"/>
 
+    <SwitchPreference
+        android:defaultValue="false"
+        android:title="@string/title_show_html_source_tip"
+        android:summary="@string/summary_show_html_source_tip"
+        android:key="@string/pref_show_html_source_tip"/>
+
     <EditTextPreference
         android:dialogTitle="USER AGENT"
         android:title="USER AGENT"

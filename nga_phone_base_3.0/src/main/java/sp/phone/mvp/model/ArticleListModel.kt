@@ -9,6 +9,7 @@ import org.apache.commons.io.FileUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import gov.anzong.androidnga.base.util.ContextUtils;
@@ -46,6 +47,12 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
 
     private lateinit var mService: RetrofitService
 
+    private val mWebPageCache = object : LinkedHashMap<String, ThreadData>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ThreadData>?): Boolean {
+            return size > 8
+        }
+    }
+
     init {
         mService =
             RetrofitHelper.getInstance().getService(RetrofitService::class.java) as RetrofitService
@@ -79,6 +86,10 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
             url = url + "&authorid=" + authorId;
         }
         return url;
+    }
+
+    private fun getWebCacheKey(param: ArticleListParam): String {
+        return "tid=${param.tid};pid=${param.pid};author=${param.authorId};page=${param.page}"
     }
 
     private fun getReadUrl(param: ArticleListParam, output: String): String {
@@ -122,7 +133,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                                 requestXmlPage(getCompactXmlUrl(param), header)
                                     .onErrorResumeNext { compactXmlThrowable: Throwable ->
                                         if (compactXmlThrowable is ServerException) {
-                                            requestWebPage(getWebUrl(param), header)
+                                            requestWebPage(getWebUrl(param), header, getWebCacheKey(param))
                                         } else {
                                             Observable.error(compactXmlThrowable)
                                         }
@@ -141,6 +152,9 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                 override fun onNext(threadData: ThreadData) {
                     callBack.onSuccess(threadData)
                     UserManagerImpl.getInstance().putAvatarUrl(threadData)
+                    if (threadData.source == ThreadData.SOURCE_WEB_HTML) {
+                        prefetchNextWebPage(param, header)
+                    }
                 }
 
                 override fun onError(throwable: Throwable) {
@@ -169,6 +183,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                         throw ServerException("NGA后台抽风了，请尝试右上角菜单中的使用内置浏览器打开")
                     }
                 } else {
+                    data.source = ThreadData.SOURCE_JSON
                     data
                 }
             }
@@ -194,6 +209,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                         throw ServerException("NGA后台抽风了，请尝试右上角菜单中的使用内置浏览器打开")
                     }
                 } else {
+                    data.source = if (url.contains("__output=10")) ThreadData.SOURCE_COMPACT_XML else ThreadData.SOURCE_XML
                     data
                 }
             }
@@ -203,6 +219,22 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
         url: String,
         header: MutableMap<String, String>?
     ): Observable<ThreadData> {
+        return requestWebPage(url, header, null)
+    }
+
+    private fun requestWebPage(
+        url: String,
+        header: MutableMap<String, String>?,
+        cacheKey: String?
+    ): Observable<ThreadData> {
+        if (cacheKey != null) {
+            synchronized(mWebPageCache) {
+                val cachedData = mWebPageCache.remove(cacheKey)
+                if (cachedData != null) {
+                    return Observable.just(cachedData)
+                }
+            }
+        }
         val webHeader = HashMap<String, String>()
         if (header != null) {
             webHeader.putAll(header)
@@ -219,9 +251,37 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                 if (data == null) {
                     throw ServerException("NGA后台抽风了，请尝试右上角菜单中的使用内置浏览器打开")
                 } else {
+                    data.source = ThreadData.SOURCE_WEB_HTML
                     data
                 }
             }
+    }
+
+    private fun prefetchNextWebPage(param: ArticleListParam, header: MutableMap<String, String>?) {
+        if (param.tid == 0 || param.pid != 0 || param.authorId != 0 || param.searchPost != 0) {
+            return
+        }
+        val nextParam = param.clone() as ArticleListParam
+        nextParam.page = param.page + 1
+        val cacheKey = getWebCacheKey(nextParam)
+        synchronized(mWebPageCache) {
+            if (mWebPageCache.containsKey(cacheKey)) {
+                return
+            }
+        }
+        requestWebPage(getWebUrl(nextParam), header, null)
+            .subscribe(object : BaseSubscriber<ThreadData>() {
+                override fun onNext(threadData: ThreadData) {
+                    synchronized(mWebPageCache) {
+                        mWebPageCache[cacheKey] = threadData
+                    }
+                    NLog.d(TAG, "prefetched web page tid=${nextParam.tid} page=${nextParam.page}")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    NLog.d(TAG, "prefetch web page failed tid=${nextParam.tid} page=${nextParam.page}")
+                }
+            })
     }
 
 
@@ -254,6 +314,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
             val rawData = FileUtils.readFileToString(cacheFile)
             val threadData = ArticleConvertFactory.getArticleInfo(rawData)
             if (threadData != null) {
+                threadData.source = ThreadData.SOURCE_CACHE
                 emitter.onNext(threadData)
             } else {
                 emitter.onError(Exception())

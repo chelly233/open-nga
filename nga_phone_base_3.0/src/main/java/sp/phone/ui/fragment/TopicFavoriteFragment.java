@@ -8,6 +8,7 @@ import android.view.View;
 import gov.anzong.androidnga.R;
 import gov.anzong.androidnga.base.util.ToastUtils;
 import sp.phone.mvp.model.entity.ThreadPageInfo;
+import sp.phone.ui.adapter.TopicListAdapter;
 
 /**
  * Created by Justwen on 2017/11/19.
@@ -24,6 +25,9 @@ public class TopicFavoriteFragment extends TopicSearchFragment implements View.O
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         ToastUtils.info("长按可删除收藏的帖子");
+        if (mAdapter instanceof TopicListAdapter) {
+            ((TopicListAdapter) mAdapter).setShowHistoryPage(true);
+        }
         mAdapter.setOnLongClickListener(this);
         mPresenter.getRemovedTopic().observe(this, this::removeTopic);
     }

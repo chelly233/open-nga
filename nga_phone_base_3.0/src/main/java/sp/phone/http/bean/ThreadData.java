@@ -6,6 +6,12 @@ import java.util.Map;
 import sp.phone.mvp.model.entity.ThreadPageInfo;
 
 public class ThreadData {
+    public static final String SOURCE_JSON = "JSON";
+    public static final String SOURCE_XML = "XML";
+    public static final String SOURCE_COMPACT_XML = "COMPACT_XML";
+    public static final String SOURCE_WEB_HTML = "WEB_HTML";
+    public static final String SOURCE_CACHE = "CACHE";
+
     private List<ThreadRowInfo> rowList;
     private ThreadPageInfo threadInfo;
     private Map<String, String> __F;
@@ -16,6 +22,8 @@ public class ThreadData {
      * 从服务端获取的原始数据
      */
     private String mRawData;
+
+    private String mSource;
 
     public List<ThreadRowInfo> getRowList() {
         return rowList;
@@ -63,5 +71,13 @@ public class ThreadData {
 
     public void setRawData(String rawData) {
         mRawData = rawData;
+    }
+
+    public String getSource() {
+        return mSource;
+    }
+
+    public void setSource(String source) {
+        mSource = source;
     }
 }

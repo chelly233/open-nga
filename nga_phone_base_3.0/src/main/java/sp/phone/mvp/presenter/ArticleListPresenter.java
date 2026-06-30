@@ -36,6 +36,8 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
 
     private static final String READ_USER_AGENT = "NGA_WP_JW/(;WINDOWS)";
 
+    private static boolean sShownWebSourceTip;
+
     private LikeTask mLikeTask;
 
     private ThreadData mThreadData;
@@ -76,6 +78,16 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
             mLoading = false;
             if (mBaseView != null) {
                 mThreadData = data;
+                if (ThreadData.SOURCE_WEB_HTML.equals(data.getSource())) {
+                    boolean showSourceTip = mBaseView.getContext()
+                            .getSharedPreferences(PreferenceKey.PERFERENCE, Context.MODE_PRIVATE)
+                            .getBoolean(mBaseView.getString(R.string.pref_show_html_source_tip), false);
+                    if (showSourceTip && !sShownWebSourceTip) {
+                        ToastUtils.info("当前页使用 HTML 解析");
+                        sShownWebSourceTip = true;
+                    }
+                    sp.phone.util.NLog.d("ArticleListPresenter", "thread page source = " + data.getSource() + ", tid = " + mRequestParam.tid + ", page = " + mRequestParam.page);
+                }
                 mBaseView.setRefreshing(false);
                 mBaseView.setData(data);
                 RxUtils.postDelay(300, new BaseSubscriber<Long>() {

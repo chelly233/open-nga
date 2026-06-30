@@ -17,6 +17,7 @@ import butterknife.ButterKnife;
 import gov.anzong.androidnga.R;
 import sp.phone.common.NoteManangerImpl;
 import sp.phone.common.PhoneConfiguration;
+import sp.phone.common.TopicHistoryManager;
 import sp.phone.mvp.model.entity.ThreadPageInfo;
 import sp.phone.param.TopicTitleHelper;
 import sp.phone.rxjava.RxUtils;
@@ -86,8 +87,10 @@ public class TopicListAdapter extends BaseAppendableAdapter<ThreadPageInfo, Topi
         holder.title.setText(TopicTitleHelper.handleTitleFormat(entry, mHighlightKeyword));
         if (mShowHistoryPage) {
             holder.historyPage.setVisibility(View.VISIBLE);
-            int page = Math.max(entry.getPage(), 1);
-            holder.historyPage.setText(mContext.getString(R.string.topic_history_last_page, page));
+            ThreadPageInfo history = TopicHistoryManager.getInstance().findTopicHistory(entry.getTid());
+            int page = history == null ? entry.getPage() : history.getPage();
+            entry.setPage(Math.max(page, 1));
+            holder.historyPage.setText(mContext.getString(R.string.topic_history_last_page, entry.getPage()));
         } else {
             holder.historyPage.setVisibility(View.GONE);
         }
