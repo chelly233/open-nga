@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 
 import gov.anzong.androidnga.base.util.StringUtils;
 import gov.anzong.androidnga.core.data.HtmlData;
+import gov.anzong.androidnga.core.util.ImagePreviewUtils;
 
 /**
  * Created by Justwen on 2018/8/25.
@@ -18,8 +19,6 @@ public class ForumImageDecoder implements IForumDecoder {
     private static final String HTML_EMOTICON = "<img class='emoticon' src='file:///android_asset/%s' >";
 
     private static final String HTML_IMG_DEFAULT = "<img src='file:///android_asset/ic_offline_image.png' >";
-
-    private static final String HTML_IMG_LINK = "<a href='%s'>";
 
     private static final String REGEX_IMG = IGNORE_CASE_TAG + "<img src='(http\\S+)'>";
 
@@ -57,8 +56,12 @@ public class ForumImageDecoder implements IForumDecoder {
             if (!showImage) {
                 content = content.replace(s0, HTML_IMG_DEFAULT);
             }
-            s1 = s1.replaceFirst("(http\\S+).(png|jpg).(thumb_s|medium|thumb|thumb_ss).jpg", "$1.$2");
-            mImageUrls.add(s1);
+            String originalUrl = ImagePreviewUtils.originalUrl(s1);
+            String previewUrl = ImagePreviewUtils.previewUrl(originalUrl);
+            if (showImage && previewUrl != null && !previewUrl.equals(s1)) {
+                content = content.replace(s0, "<img src='" + previewUrl + "'>");
+            }
+            mImageUrls.add(originalUrl);
         }
         return content;
     }

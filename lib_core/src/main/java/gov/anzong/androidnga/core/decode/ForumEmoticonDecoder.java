@@ -148,27 +148,12 @@ public class ForumEmoticonDecoder implements IForumDecoder {
     private static Table<String, String, String> sEmotionTable = HashBasedTable.create();
 
     static {
-        for (int i = 0; i < EMOTICON_URL[1].length; i++) {
-            sEmotionTable.put("ac", EMOTICON_URL[1][i][1], EMOTICON_URL[1][i][2]);
-        }
-
-        for (int i = 0; i < EMOTICON_URL[2].length; i++) {
-            sEmotionTable.put("a2", EMOTICON_URL[2][i][1], EMOTICON_URL[2][i][2]);
-        }
-
-        for (int i = 0; i < EMOTICON_URL[3].length; i++) {
-            sEmotionTable.put("ng", EMOTICON_URL[3][i][1], EMOTICON_URL[3][i][2]);
-        }
-
-        for (int i = 0; i < EMOTICON_URL[4].length; i++) {
-            sEmotionTable.put("pst", EMOTICON_URL[4][i][1], EMOTICON_URL[4][i][1]);
-        }
-        for (int i = 0; i < EMOTICON_URL[5].length; i++) {
-            sEmotionTable.put("dt", EMOTICON_URL[5][i][1], EMOTICON_URL[5][i][2]);
-        }
-
-        for (int i = 0; i < EMOTICON_URL[6].length; i++) {
-            sEmotionTable.put("pg", EMOTICON_URL[6][i][1], EMOTICON_URL[6][i][2]);
+        for (String[][] group : EMOTICON_URL) {
+            for (String[] item : group) {
+                if (item.length >= 3) {
+                    sEmotionTable.put(item[0], item[1], item[2]);
+                }
+            }
         }
     }
 
@@ -185,6 +170,9 @@ public class ForumEmoticonDecoder implements IForumDecoder {
                 continue;
             }
             String image = sEmotionTable.get(category, emoticon);
+            if (image == null) {
+                continue;
+            }
             String html = category.contains("ac") || category.contains("a2") ? HTML_EMOTICON_ACNIANG : HTML_EMOTICON;
             content = content.replace(matched, String.format(html, category, image));
         }

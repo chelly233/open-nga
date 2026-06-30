@@ -4,6 +4,7 @@ import java.util.List;
 
 import gov.anzong.androidnga.core.data.AttachmentData;
 import gov.anzong.androidnga.core.data.HtmlData;
+import gov.anzong.androidnga.core.util.ImagePreviewUtils;
 
 /**
  * Created by Justwen on 2018/8/28.
@@ -38,10 +39,12 @@ public class HtmlAttachmentBuilder implements IHtmlBuild {
     private static StringBuilder buildImageAttachment(StringBuilder ret, AttachmentData attachment, int index, List<String> imageUrls) {
 
         String attachUrl = "http://" + attachment.getAttachmentHost() + "/attachments/" + attachment.getAttachUrl();
-        String attachUrlThumb = attachUrl;
+        String attachUrlThumb;
         String indexStr = String.valueOf(index);
         if ("1".equals(attachment.getThumb())) {
-            attachUrlThumb = attachUrlThumb + ".thumb.jpg";
+            attachUrlThumb = attachUrl + ".thumb.jpg";
+        } else {
+            attachUrlThumb = ImagePreviewUtils.previewUrl(attachUrl);
         }
         ret.append("<tr><td>")
                 .append(String.format("<button id='show%s' type='button' onclick='displayImg(%s,\"%s\")'>点击显示附件</button>", indexStr, indexStr, attachUrlThumb))

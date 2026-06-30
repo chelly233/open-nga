@@ -42,11 +42,14 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
 
     private ArticleListParam mRequestParam;
 
+    private boolean mLoading;
+
     private final Map<String, String> mHeaderMap = new ArrayMap<>();
 
     private class ArticleCallback implements OnHttpCallBack<ThreadData> {
         @Override
         public void onError(String text) {
+            mLoading = false;
             if (mBaseView != null) {
                 mBaseView.hideLoadingView();
                 mBaseView.setRefreshing(false);
@@ -56,6 +59,7 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
 
         @Override
         public void onError(String msg, Throwable t) {
+            mLoading = false;
             if (t instanceof ArticleListModel.ServerException) {
                 if (mBaseView != null) {
                     mBaseView.hideLoadingView();
@@ -69,6 +73,7 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
 
         @Override
         public void onSuccess(ThreadData data) {
+            mLoading = false;
             if (mBaseView != null) {
                 mThreadData = data;
                 mBaseView.setRefreshing(false);
@@ -117,17 +122,34 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
         header.put("User-Agent", READ_USER_AGENT);
         header.put("X-User-Agent", READ_USER_AGENT);
         header.put("Referer", getCurrentUrl());
+        mLoading = true;
         mBaseModel.loadPage(mRequestParam, header, mDataCallBack);
         return true;
     }
 
     @Override
     public void loadPage(ArticleListParam param) {
+        loadPage(param, true);
+    }
+
+    private void loadPageIfNeeded() {
+        if (mRequestParam != null && !mRequestParam.loadCache && mThreadData == null && !mLoading) {
+            loadPage(mRequestParam, false);
+        }
+    }
+
+    private void loadPage(ArticleListParam param, boolean forceRefresh) {
+        if (!forceRefresh && mLoading) {
+            return;
+        }
         mRequestParam = param;
         mHeaderMap.put("User-Agent", READ_USER_AGENT);
         mHeaderMap.put("X-User-Agent", READ_USER_AGENT);
         mHeaderMap.put("Referer", getCurrentUrl());
-        mBaseView.setRefreshing(true);
+        mLoading = true;
+        if (mBaseView != null) {
+            mBaseView.setRefreshing(true);
+        }
         mBaseModel.loadPage(param, mHeaderMap, mRetryCallback);
     }
 
@@ -321,14 +343,14 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
     public void onViewCreated() {
         if (mRequestParam != null && mRequestParam.loadCache) {
             mBaseModel.loadCachePage(mRequestParam, mDataCallBack);
+        } else {
+            loadPageIfNeeded();
         }
     }
 
     @Override
     protected void onResume() {
-        if (mRequestParam != null && !mRequestParam.loadCache && mThreadData == null) {
-            loadPage(mRequestParam);
-        }
+        loadPageIfNeeded();
         super.onResume();
     }
 }

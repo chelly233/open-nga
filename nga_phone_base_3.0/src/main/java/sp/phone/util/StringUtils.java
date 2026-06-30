@@ -22,6 +22,7 @@ import gov.anzong.androidnga.R;
 import gov.anzong.androidnga.Utils;
 import gov.anzong.androidnga.base.util.ContextUtils;
 import gov.anzong.androidnga.common.util.EmoticonUtils;
+import gov.anzong.androidnga.core.util.ImagePreviewUtils;
 import sp.phone.http.bean.StringFindResult;
 import sp.phone.theme.ThemeManager;
 
@@ -475,14 +476,15 @@ public class StringUtils {
                         + "' style= 'max-width:100%' >";
                 content = content.replace(s0, newImgBlock);
             } else {
+                String originalUrl = ImagePreviewUtils.originalUrl(s1);
 
                 String newImgBlock = "<img src='"
-                        + s1
+                        + ImagePreviewUtils.previewUrl(originalUrl)
                         + "' style= 'max-width:100%' >";
                 content = content.replace(s0, newImgBlock);
-                int t = s1.indexOf(HttpUtil.NGA_ATTACHMENT_HOST);
+                int t = originalUrl.indexOf(HttpUtil.NGA_ATTACHMENT_HOST);
                 if (t != -1 && imageUrls != null) {
-                    imageUrls.add(s1);
+                    imageUrls.add(originalUrl);
                 }
             }
         }

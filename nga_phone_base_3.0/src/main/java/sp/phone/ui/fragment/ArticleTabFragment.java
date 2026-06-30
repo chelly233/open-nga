@@ -118,6 +118,7 @@ public class ArticleTabFragment extends BaseRxFragment {
         ButterKnife.bind(this, view);
         updateFloatingMenu();
         mPagerAdapter = new ArticlePagerAdapter(getChildFragmentManager(), mRequestParam);
+        mViewPager.setOffscreenPageLimit(1);
         mViewPager.setAdapter(mPagerAdapter);
         mViewPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
             @Override

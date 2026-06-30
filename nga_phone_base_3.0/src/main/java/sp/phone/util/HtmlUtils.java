@@ -14,6 +14,7 @@ import gov.anzong.androidnga.R;
 import gov.anzong.androidnga.Utils;
 import gov.anzong.androidnga.core.data.HtmlData;
 import gov.anzong.androidnga.core.decode.ForumDecoder;
+import gov.anzong.androidnga.core.util.ImagePreviewUtils;
 import sp.phone.common.PhoneConfiguration;
 import sp.phone.http.bean.Attachment;
 import sp.phone.http.bean.ThreadRowInfo;
@@ -175,10 +176,12 @@ public class HtmlUtils {
     private static StringBuilder buildImageAttachment(StringBuilder ret, Attachment attachment, int index, List<String> imageUrls) {
 
         String attachUrl = "http://" + HttpUtil.NGA_ATTACHMENT_HOST + "/attachments/" + attachment.getAttachurl();
-        String attachUrlThumb = attachUrl;
+        String attachUrlThumb;
         String indexStr = String.valueOf(index);
         if ("1".equals(attachment.getThumb())) {
-            attachUrlThumb = attachUrlThumb + ".thumb.jpg";
+            attachUrlThumb = attachUrl + ".thumb.jpg";
+        } else {
+            attachUrlThumb = ImagePreviewUtils.previewUrl(attachUrl);
         }
         ret.append("<tr><td>")
                 .append(String.format("<button id='show%s' type='button' onclick='displayImg(%s,\"%s\")'>点击显示附件</button>", indexStr, indexStr, attachUrlThumb))
