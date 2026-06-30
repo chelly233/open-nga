@@ -24,6 +24,7 @@ import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import sp.phone.common.UserManagerImpl;
 import sp.phone.http.bean.ThreadData;
+import sp.phone.http.bean.ThreadRowInfo;
 import sp.phone.http.retrofit.RetrofitHelper;
 import sp.phone.http.retrofit.RetrofitService;
 import sp.phone.mvp.contract.ArticleListContract;
@@ -133,7 +134,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                                 requestXmlPage(getCompactXmlUrl(param), header)
                                     .onErrorResumeNext { compactXmlThrowable: Throwable ->
                                         if (compactXmlThrowable is ServerException) {
-                                            requestWebPage(getWebUrl(param), header, getWebCacheKey(param))
+                                            requestWebPage(param, header, getWebCacheKey(param))
                                         } else {
                                             Observable.error(compactXmlThrowable)
                                         }
@@ -216,14 +217,14 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
     }
 
     private fun requestWebPage(
-        url: String,
+        param: ArticleListParam,
         header: MutableMap<String, String>?
     ): Observable<ThreadData> {
-        return requestWebPage(url, header, null)
+        return requestWebPage(param, header, null)
     }
 
     private fun requestWebPage(
-        url: String,
+        param: ArticleListParam,
         header: MutableMap<String, String>?,
         cacheKey: String?
     ): Observable<ThreadData> {
@@ -240,7 +241,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
             webHeader.putAll(header)
         }
         webHeader["User-Agent"] = WEB_USER_AGENT
-        return mService.get(url, webHeader)
+        return mService.get(getWebUrl(param), webHeader)
             .subscribeOn(Schedulers.io())
             .observeOn(Schedulers.newThread())
             .compose(getLifecycleProvider().bindUntilEvent(FragmentEvent.DETACH))
@@ -250,6 +251,8 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                 NLog.e(TAG, "web time = ${System.currentTimeMillis() - time}")
                 if (data == null) {
                     throw ServerException("NGA后台抽风了，请尝试右上角菜单中的使用内置浏览器打开")
+                } else if (!isValidWebPage(param, data)) {
+                    throw ServerException("HTML解析结果异常，请稍后重试")
                 } else {
                     data.source = ThreadData.SOURCE_WEB_HTML
                     data
@@ -269,7 +272,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                 return
             }
         }
-        requestWebPage(getWebUrl(nextParam), header, null)
+        requestWebPage(nextParam, header, null)
             .subscribe(object : BaseSubscriber<ThreadData>() {
                 override fun onNext(threadData: ThreadData) {
                     synchronized(mWebPageCache) {
@@ -282,6 +285,49 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                     NLog.d(TAG, "prefetch web page failed tid=${nextParam.tid} page=${nextParam.page}")
                 }
             })
+    }
+
+    private fun isValidWebPage(param: ArticleListParam, data: ThreadData): Boolean {
+        val threadInfo = data.threadInfo ?: return false
+        val rowList = data.rowList ?: return false
+        if (rowList.isEmpty()) {
+            NLog.e(TAG, "invalid web page: empty row list")
+            return false
+        }
+        if (param.tid != 0 && threadInfo.tid != 0 && param.tid != threadInfo.tid) {
+            NLog.e(TAG, "invalid web page: tid mismatch request=${param.tid}, actual=${threadInfo.tid}")
+            return false
+        }
+        if (threadInfo.page > 0 && param.page > 0 && threadInfo.page != param.page) {
+            NLog.e(TAG, "invalid web page: page mismatch request=${param.page}, actual=${threadInfo.page}")
+            return false
+        }
+
+        var minFloor = Int.MAX_VALUE
+        var maxFloor = Int.MIN_VALUE
+        for (row: ThreadRowInfo in rowList) {
+            if (row.tid != 0 && param.tid != 0 && row.tid != param.tid) {
+                NLog.e(TAG, "invalid web page: row tid mismatch request=${param.tid}, actual=${row.tid}")
+                return false
+            }
+            minFloor = minOf(minFloor, row.lou)
+            maxFloor = maxOf(maxFloor, row.lou)
+        }
+
+        val totalRows = data.get__ROWS()
+        if (totalRows > 0 && maxFloor >= totalRows) {
+            NLog.e(TAG, "invalid web page: floor exceeds total rows maxFloor=$maxFloor, totalRows=$totalRows")
+            return false
+        }
+        if (param.page > 0) {
+            val expectedMinFloor = (param.page - 1) * 20
+            val expectedMaxFloor = expectedMinFloor + 19
+            if (maxFloor < expectedMinFloor || minFloor > expectedMaxFloor) {
+                NLog.e(TAG, "invalid web page: floor range mismatch page=${param.page}, actual=$minFloor-$maxFloor, expected=$expectedMinFloor-$expectedMaxFloor")
+                return false
+            }
+        }
+        return true
     }
 
 

@@ -30,6 +30,7 @@ public class ArticleWebConvertFactory {
             }
             int tid = findInt(html, "__CURRENT_TID\\s*=\\s*(-?\\d+)", 0);
             int fid = findInt(html, "__CURRENT_FID\\s*=\\s*(-?\\d+)", 0);
+            int currentPage = findInt(html, "__CURRENT_PAGE\\s*=\\s*(-?\\d+)", 0);
             int pageRows = findInt(html, "__CURRENT_PAGE_POSTS\\s*=\\s*(-?\\d+)", 0);
             TopicDefaults topicDefaults = parseTopicDefaults(html);
             int replies = topicDefaults == null ? Math.max(0, pageRows - 1) : topicDefaults.replies;
@@ -74,6 +75,7 @@ public class ArticleWebConvertFactory {
             threadInfo.setAuthorId(rowList.get(0).getAuthorid());
             threadInfo.setAuthor(rowList.get(0).getAuthor());
             threadInfo.setReplies(replies);
+            threadInfo.setPage(currentPage);
 
             ThreadData data = new ThreadData();
             data.setRawData(html);
