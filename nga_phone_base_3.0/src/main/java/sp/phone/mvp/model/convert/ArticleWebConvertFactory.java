@@ -95,7 +95,14 @@ public class ArticleWebConvertFactory {
             row.setAuthor(String.valueOf(row.getAuthorid()));
             return;
         }
-        row.setAuthor(user.getString("username"));
+        String username = user.getString("username");
+        String uid = user.getString("uid");
+        if (isAnonymousUsername(username) || isAnonymousUsername(uid)) {
+            row.setAuthor(resolveAnonymousName(username));
+            row.setISANONYMOUS(true);
+        } else {
+            row.setAuthor(username);
+        }
         row.setJs_escap_avatar(user.getString("avatar"));
         row.setYz(user.getString("yz"));
         row.setMuteTime(user.getString("mute_time"));
@@ -103,6 +110,18 @@ public class ArticleWebConvertFactory {
         row.setPostCount(user.getString("postnum"));
         row.setAurvrc(parseInt(user.getString("rvrc"), 0));
         row.setReputation(parseInt(user.getString("rvrc"), 0) / 10.0f);
+    }
+
+    private static boolean isAnonymousUsername(String value) {
+        return value != null && value.startsWith("#anony_");
+    }
+
+    private static String resolveAnonymousName(String value) {
+        if (!isAnonymousUsername(value)) {
+            return value;
+        }
+        String result = value.substring("#anony_".length());
+        return result.isEmpty() ? "匿名用户" : result;
     }
 
     private static Map<Integer, JSONObject> parseUsers(String html) {

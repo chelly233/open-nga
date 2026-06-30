@@ -226,6 +226,10 @@ public class ForumBasicDecoder implements IForumDecoder {
                 "<span style=\"font-size:$1%;line-height:$1%\">");
         content = StringUtils.replaceAll(content, ignoreCaseTag + "\\[/size\\]", "</span>");
 
+        content = content.replace("\r\n", "\n");
+        content = content.replace("\r", "\n");
+        content = content.replace("\n", "<br/>");
+
 
         // [list][/list]
         // TODO: 2018/9/18  部分页面里和 collapse 标签有冲突 http://bbs.nga.cn/read.php?tid=14949699
