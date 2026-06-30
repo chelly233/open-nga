@@ -4,12 +4,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.ArrayMap;
+import android.widget.Toast;
 
 import java.util.Map;
 
 import gov.anzong.androidnga.R;
 import gov.anzong.androidnga.Utils;
 import gov.anzong.androidnga.activity.WebViewActivity;
+import gov.anzong.androidnga.base.logger.Logger;
 import gov.anzong.androidnga.base.util.ToastUtils;
 import gov.anzong.androidnga.common.PreferenceKey;
 import gov.anzong.androidnga.http.OnHttpCallBack;
@@ -35,8 +37,6 @@ import sp.phone.util.StringUtils;
 public class ArticleListPresenter extends BasePresenter<ArticleListFragment, ArticleListModel> implements ArticleListContract.Presenter {
 
     private static final String READ_USER_AGENT = "NGA_WP_JW/(;WINDOWS)";
-
-    private static boolean sShownWebSourceTip;
 
     private LikeTask mLikeTask;
 
@@ -78,14 +78,8 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
             mLoading = false;
             if (mBaseView != null) {
                 mThreadData = data;
+                showParseDebugInfo(data);
                 if (ThreadData.SOURCE_WEB_HTML.equals(data.getSource())) {
-                    boolean showSourceTip = mBaseView.getContext()
-                            .getSharedPreferences(PreferenceKey.PERFERENCE, Context.MODE_PRIVATE)
-                            .getBoolean(mBaseView.getString(R.string.pref_show_html_source_tip), false);
-                    if (showSourceTip && !sShownWebSourceTip) {
-                        ToastUtils.info("当前页使用 HTML 解析");
-                        sShownWebSourceTip = true;
-                    }
                     sp.phone.util.NLog.d("ArticleListPresenter", "thread page source = " + data.getSource() + ", tid = " + mRequestParam.tid + ", page = " + mRequestParam.page);
                 }
                 mBaseView.setRefreshing(false);
@@ -101,6 +95,28 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
             }
         }
     };
+
+    private void showParseDebugInfo(ThreadData data) {
+        boolean parseDebugEnabled = mBaseView.getContext()
+                .getSharedPreferences(PreferenceKey.PERFERENCE, Context.MODE_PRIVATE)
+                .getBoolean(mBaseView.getString(R.string.pref_article_parse_debug), false);
+        if (!parseDebugEnabled) {
+            return;
+        }
+        String summary = "来源:" + data.getSource()
+                + " 域名:" + data.getRequestDomain()
+                + " 楼层:" + data.getRowNum() + "/" + data.get__ROWS();
+        Toast.makeText(mBaseView.getContext(), summary, Toast.LENGTH_SHORT).show();
+
+        String message = summary
+                + " tid:" + mRequestParam.tid
+                + " page:" + mRequestParam.page;
+        if (!StringUtils.isEmpty(data.getFallbackMessage())) {
+            message += " fallback:" + data.getFallbackMessage();
+        }
+        sp.phone.util.NLog.d("ArticleListPresenter", message);
+        Logger.getInstance().d("ArticleListPresenter", message);
+    }
 
     private class RetryCallback extends ArticleCallback {
 

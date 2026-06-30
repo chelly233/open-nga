@@ -125,15 +125,19 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
         header: MutableMap<String, String>?,
         callBack: OnHttpCallBack<ThreadData>
     ) {
+        val fallbackMessages = mutableListOf<String>()
         requestJsonPage(getUrl(param), header)
             .onErrorResumeNext { throwable: Throwable ->
                 if (throwable is ServerException) {
+                    recordFallback(fallbackMessages, ThreadData.SOURCE_JSON, throwable)
                     requestXmlPage(getXmlUrl(param), header)
                         .onErrorResumeNext { xmlThrowable: Throwable ->
                             if (xmlThrowable is ServerException) {
+                                recordFallback(fallbackMessages, ThreadData.SOURCE_XML, xmlThrowable)
                                 requestXmlPage(getCompactXmlUrl(param), header)
                                     .onErrorResumeNext { compactXmlThrowable: Throwable ->
                                         if (compactXmlThrowable is ServerException) {
+                                            recordFallback(fallbackMessages, ThreadData.SOURCE_COMPACT_XML, compactXmlThrowable)
                                             requestWebPage(param, header, getWebCacheKey(param))
                                         } else {
                                             Observable.error(compactXmlThrowable)
@@ -151,6 +155,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
             .compose(getLifecycleProvider().bindUntilEvent(FragmentEvent.DETACH))
             .subscribe(object : BaseSubscriber<ThreadData>() {
                 override fun onNext(threadData: ThreadData) {
+                    fillDebugInfo(param, threadData, fallbackMessages)
                     callBack.onSuccess(threadData)
                     UserManagerImpl.getInstance().putAvatarUrl(threadData)
                     if (threadData.source == ThreadData.SOURCE_WEB_HTML) {
@@ -159,9 +164,22 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
                 }
 
                 override fun onError(throwable: Throwable) {
+                    recordFallback(fallbackMessages, ThreadData.SOURCE_WEB_HTML, throwable)
+                    NLog.e(TAG, "article parse failed tid=${param.tid}, page=${param.page}, domain=${getAvailableDomain()}, fallback=${fallbackMessages.joinToString(" -> ")}")
                     callBack.onError(ErrorConvertFactory.getErrorMessage(throwable), throwable)
                 }
             })
+    }
+
+    private fun recordFallback(messages: MutableList<String>, source: String, throwable: Throwable) {
+        val message = throwable.message ?: throwable.javaClass.simpleName
+        messages.add("$source: $message")
+    }
+
+    private fun fillDebugInfo(param: ArticleListParam, data: ThreadData, fallbackMessages: List<String>) {
+        data.requestDomain = getAvailableDomain()
+        data.fallbackMessage = fallbackMessages.joinToString(" -> ")
+        NLog.d(TAG, "article source=${data.source}, tid=${param.tid}, page=${param.page}, domain=${data.requestDomain}, rows=${data.rowNum}/${data.get__ROWS()}, fallback=${data.fallbackMessage}")
     }
 
     private fun requestJsonPage(
@@ -275,6 +293,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
         requestWebPage(nextParam, header, null)
             .subscribe(object : BaseSubscriber<ThreadData>() {
                 override fun onNext(threadData: ThreadData) {
+                    fillDebugInfo(nextParam, threadData, emptyList())
                     synchronized(mWebPageCache) {
                         mWebPageCache[cacheKey] = threadData
                     }

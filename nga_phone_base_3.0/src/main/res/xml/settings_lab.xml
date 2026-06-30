@@ -15,9 +15,9 @@
 
     <SwitchPreference
         android:defaultValue="false"
-        android:title="@string/title_show_html_source_tip"
-        android:summary="@string/summary_show_html_source_tip"
-        android:key="@string/pref_show_html_source_tip"/>
+        android:title="@string/title_article_parse_debug"
+        android:summary="@string/summary_article_parse_debug"
+        android:key="@string/pref_article_parse_debug"/>
 
     <EditTextPreference
         android:dialogTitle="USER AGENT"

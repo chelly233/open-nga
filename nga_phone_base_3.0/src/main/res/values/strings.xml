@@ -350,9 +350,9 @@
     <string name="setting_summary_hardware_accelerated">主题详情页面闪退可尝试关闭此项</string>
     <string name="summary_show_with_webview">加载出错时默认使用内置浏览器打开</string>
     <string name="title_show_with_webview">使用内置浏览器打开</string>
-    <string name="pref_show_html_source_tip">pref_show_html_source_tip</string>
-    <string name="title_show_html_source_tip">提示 HTML 解析来源</string>
-    <string name="summary_show_html_source_tip">风控帖子使用 HTML 解析时显示一次提示</string>
+    <string name="pref_article_parse_debug">pref_article_parse_debug</string>
+    <string name="title_article_parse_debug">解析调试模式</string>
+    <string name="summary_article_parse_debug">Toast 显示解析摘要；详细来源、域名、楼层和 fallback 原因会写入日志，开启本地日志后保存到文件</string>
     <string name="setting_title_sort_by_post">按发帖顺序排序</string>
     <string name="setting_title_user">用户管理</string>
     <string name="setting_title_black_list">黑名单</string>

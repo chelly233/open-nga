@@ -25,6 +25,10 @@ public class ThreadData {
 
     private String mSource;
 
+    private String mRequestDomain;
+
+    private String mFallbackMessage;
+
     public List<ThreadRowInfo> getRowList() {
         return rowList;
     }
@@ -79,5 +83,21 @@ public class ThreadData {
 
     public void setSource(String source) {
         mSource = source;
+    }
+
+    public String getRequestDomain() {
+        return mRequestDomain;
+    }
+
+    public void setRequestDomain(String requestDomain) {
+        mRequestDomain = requestDomain;
+    }
+
+    public String getFallbackMessage() {
+        return mFallbackMessage;
+    }
+
+    public void setFallbackMessage(String fallbackMessage) {
+        mFallbackMessage = fallbackMessage;
     }
 }
