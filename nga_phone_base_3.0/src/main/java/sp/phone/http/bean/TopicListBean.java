@@ -444,6 +444,7 @@ public class TopicListBean {
             public static class AttachBean {
 
                 private String attachurl;
+                private String thumb;
 
                 public String getAttachurl() {
                     return attachurl;
@@ -451,6 +452,14 @@ public class TopicListBean {
 
                 public void setAttachurl(String attachurl) {
                     this.attachurl = attachurl;
+                }
+
+                public String getThumb() {
+                    return thumb;
+                }
+
+                public void setThumb(String thumb) {
+                    this.thumb = thumb;
                 }
             }
 

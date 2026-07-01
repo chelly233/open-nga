@@ -11,12 +11,10 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import gov.anzong.androidnga.base.util.ContextUtils;
 import gov.anzong.androidnga.base.util.ThreadUtils;
@@ -34,10 +32,10 @@ import sp.phone.mvp.model.convert.ErrorConvertFactory;
 import sp.phone.mvp.model.convert.TopicConvertFactory;
 import sp.phone.mvp.model.entity.ThreadPageInfo;
 import sp.phone.mvp.model.entity.TopicListInfo;
-import sp.phone.common.PhoneConfiguration;
+import sp.phone.common.UserManagerImpl;
 import sp.phone.param.TopicListParam;
 import sp.phone.rxjava.BaseSubscriber;
-import sp.phone.util.NLog;
+import sp.phone.util.MD5Util;
 import sp.phone.util.StringUtils;
 
 /**
@@ -46,32 +44,13 @@ import sp.phone.util.StringUtils;
 
 public class TopicListModel extends BaseModel implements TopicListContract.Model {
 
-    private static final int TOPIC_TYPE_HAS_IMAGE = 8192;
-
-    private static final int TOPIC_PREVIEW_DETAIL_TIMEOUT_SECONDS = 3;
-
-    private static final Pattern TOPIC_DETAIL_IMAGE_PATTERN =
-            Pattern.compile("(?is)\\[img(?:=[^\\]]*)?\\](.*?)\\[/img\\]");
-
     private RetrofitService mService;
-
-    private Map<String, String> mFieldMap;
 
     private TopicConvertFactory mConvertFactory;
 
     public TopicListModel() {
         mService = (RetrofitService) RetrofitHelper.getInstance().getService(RetrofitService.class);
         mConvertFactory = new TopicConvertFactory();
-    }
-
-    private void initFieldMap() {
-        if (mFieldMap == null) {
-            mFieldMap = new HashMap<>();
-            mFieldMap.put("__lib", "topic_favor");
-            mFieldMap.put("__act", "topic_favor");
-            mFieldMap.put("__output", "8");
-            mFieldMap.put("action", "del");
-        }
     }
 
     @Override
@@ -116,14 +95,18 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
 
     @Override
     public void removeTopic(ThreadPageInfo info, final OnHttpCallBack<String> callBack) {
-        initFieldMap();
-        mFieldMap.put("page", String.valueOf(info.getPage()));
+        Map<String, String> fieldMap = new HashMap<>();
+        fieldMap.put("__lib", "topic_favor");
+        fieldMap.put("__act", "topic_favor");
+        fieldMap.put("__output", "8");
+        fieldMap.put("action", "del");
+        fieldMap.put("page", String.valueOf(info.getPage()));
         String tidArray = String.valueOf(info.getTid());
         if (info.getPid() != 0) {
             tidArray = tidArray +  "_" + info.getPid();
         }
-        mFieldMap.put("tidarray", tidArray);
-        mService.post(mFieldMap)
+        fieldMap.put("tidarray", tidArray);
+        mService.post(fieldMap)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new BaseSubscriber<String>() {
@@ -147,10 +130,8 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
                 .map(new Function<String, TopicListInfo>() {
                     @Override
                     public TopicListInfo apply(@NonNull String js) throws Exception {
-                        //NLog.d(js);
                         TopicListInfo result = mConvertFactory.getTopicListInfo(js, page);
                         if (result != null) {
-                            supplementMissingPreviewImages(result);
                             return result;
                         } else {
                             throw new Exception(ErrorConvertFactory.getErrorMessage(js));
@@ -182,10 +163,8 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
                 .map(new Function<String, TopicListInfo>() {
                     @Override
                     public TopicListInfo apply(@NonNull String js) throws Exception {
-                        NLog.d(js);
                         TopicListInfo result = mConvertFactory.getTopicListInfo(js, 0);
                         if (result != null) {
-                            supplementMissingPreviewImages(result);
                             return result;
                         } else {
                             throw new Exception(ErrorConvertFactory.getErrorMessage(js));
@@ -226,130 +205,106 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
             } catch (IOException e) {
                 e.printStackTrace();
             }
-                callBack.onError(null);
-
+            callBack.onError(null);
         });
     }
 
-    private void supplementMissingPreviewImages(TopicListInfo listInfo) {
-        if (!PhoneConfiguration.getInstance().isTopicListPreviewImageEnabled()) {
-            return;
-        }
-        for (ThreadPageInfo pageInfo : listInfo.getThreadPageList()) {
-            if (!shouldSupplementPreviewImages(pageInfo)) {
-                continue;
-            }
-            try {
-                String js = mService.get(getTopicDetailUrl(pageInfo.getTid()))
-                        .timeout(TOPIC_PREVIEW_DETAIL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                        .blockingFirst();
-                fillPreviewImagesFromTopicDetail(pageInfo, js);
-            } catch (Exception e) {
-                NLog.d("TopicListModel", "supplement preview image failed tid=" + pageInfo.getTid());
-            }
-        }
-    }
-
-    private boolean shouldSupplementPreviewImages(ThreadPageInfo pageInfo) {
-        return pageInfo != null
-                && pageInfo.getTid() > 0
-                && (pageInfo.getType() & TOPIC_TYPE_HAS_IMAGE) != 0
-                && (pageInfo.getPreviewImages() == null || pageInfo.getPreviewImages().isEmpty());
-    }
-
-    private String getTopicDetailUrl(int tid) {
-        return getAvailableDomain() + "/read.php?tid=" + tid + "&page=1&lite=js&noprefix";
-    }
-
-    private void fillPreviewImagesFromTopicDetail(ThreadPageInfo pageInfo, String js) {
-        if (StringUtils.isEmpty(js)) {
-            return;
-        }
-        JSONObject data = JSON.parseObject(js).getJSONObject("data");
-        if (data == null) {
-            return;
-        }
-        JSONObject rowMap = data.getJSONObject("__R");
-        if (rowMap == null) {
-            return;
-        }
-        JSONObject firstRow = rowMap.getJSONObject("0");
-        if (firstRow == null) {
-            return;
-        }
-        JSONObject attachs = firstRow.getJSONObject("attachs");
-        if (attachs != null) {
-            for (Object value : attachs.values()) {
-                if (value instanceof JSONObject) {
-                    pageInfo.addPreviewImage(((JSONObject) value).getString("attachurl"));
-                }
-            }
-        }
-        if (pageInfo.getPreviewImages() != null && !pageInfo.getPreviewImages().isEmpty()) {
-            return;
-        }
-        String content = firstRow.getString("content");
-        if (StringUtils.isEmpty(content)) {
-            return;
-        }
-        Matcher matcher = TOPIC_DETAIL_IMAGE_PATTERN.matcher(content);
-        while (matcher.find()) {
-            pageInfo.addPreviewImage(matcher.group(1)
-                    .replace("\\/", "/")
-                    .replace("&amp;", "&"));
-        }
-    }
-
     private String getUrl(int page, TopicListParam requestInfo) {
-        StringBuilder jsonUri = new StringBuilder(getAvailableDomain() + "/thread.php?");
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("page", String.valueOf(page));
         if (0 != requestInfo.authorId) {
-            jsonUri.append("authorid=").append(requestInfo.authorId).append("&");
+            params.put("authorid", String.valueOf(requestInfo.authorId));
         }
         if (requestInfo.searchPost != 0) {
-            jsonUri.append("searchpost=").append(requestInfo.searchPost).append("&");
+            params.put("searchpost", String.valueOf(requestInfo.searchPost));
         }
         if (requestInfo.favor != 0) {
-            jsonUri.append("favor=").append(requestInfo.favor).append("&");
+            params.put("favor", String.valueOf(requestInfo.favor));
         }
-        int content = requestInfo.content;
-        if (content == 0
-                && PhoneConfiguration.getInstance().isTopicListPreviewImageEnabled()) {
-            content = 1;
-        }
-        if (content != 0) {
-            jsonUri.append("content=").append(content).append("&");
-        }
-
         if (!StringUtils.isEmpty(requestInfo.author)) {
             try {
                 if (requestInfo.author.endsWith("&searchpost=1")) {
-                    jsonUri.append("author=").append(URLEncoder.encode(
+                    params.put("author", URLEncoder.encode(
                             requestInfo.author.substring(0, requestInfo.author.length() - 13),
-                            "GBK")).append("&searchpost=1&");
+                            "GBK"));
+                    params.put("searchpost", "1");
                 } else {
-                    jsonUri.append("author=").append(URLEncoder.encode(requestInfo.author, "GBK")).append("&");
+                    params.put("author", URLEncoder.encode(requestInfo.author, "GBK"));
                 }
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
             }
         } else {
             if (requestInfo.stid != 0) {
-                jsonUri.append("stid=").append(requestInfo.stid).append("&");
+                params.put("stid", String.valueOf(requestInfo.stid));
             } else if (0 != requestInfo.fid) {
-                jsonUri.append("fid=").append(requestInfo.fid).append("&");
+                params.put("fid", String.valueOf(requestInfo.fid));
             }
             if (!StringUtils.isEmpty(requestInfo.key)) {
-                jsonUri.append("key=").append(StringUtils.encodeUrl(requestInfo.key, "UTF-8")).append("&");
+                params.put("key", StringUtils.encodeUrl(requestInfo.key, "UTF-8"));
             }
             if (!StringUtils.isEmpty(requestInfo.fidGroup)) {
-                jsonUri.append("fidgroup=").append(requestInfo.fidGroup).append("&");
+                params.put("fidgroup", requestInfo.fidGroup);
             }
-
         }
-        jsonUri.append("page=").append(page).append("&lite=js&noprefix");
         if (requestInfo.recommend == 1) {
-            jsonUri.append("&recommend=1&order_by=postdatedesc&user=1");
+            params.put("recommend", "1");
+            params.put("order_by", "postdatedesc");
         }
+        params.put("app_id", "1010");
+        params.put("t", String.valueOf(System.currentTimeMillis() / 1000L));
+
+        String accessUid = UserManagerImpl.getInstance().getUserId();
+        String accessToken = UserManagerImpl.getInstance().getCid();
+        params.put("access_uid", StringUtils.isEmpty(accessUid) ? "" : accessUid);
+        params.put("access_token", StringUtils.isEmpty(accessToken) ? "" : accessToken);
+        params.put("sign", buildSign(params));
+
+        StringBuilder jsonUri = new StringBuilder(getAvailableDomain()).append("/thread.php?");
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            jsonUri.append(entry.getKey()).append("=").append(entry.getValue()).append("&");
+        }
+        jsonUri.append("lite=js&noprefix");
         return jsonUri.toString();
+    }
+
+    private String buildSign(Map<String, String> params) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(params.get("app_id"));
+        builder.append(params.get("access_uid"));
+        builder.append(params.get("access_token"));
+        if (params.containsKey("authorid")) {
+            builder.append("authorid=").append(params.get("authorid")).append("&");
+        }
+        if (params.containsKey("searchpost")) {
+            builder.append("searchpost=").append(params.get("searchpost")).append("&");
+        }
+        if (params.containsKey("favor")) {
+            builder.append("favor=").append(params.get("favor")).append("&");
+        }
+        if (params.containsKey("author")) {
+            builder.append("author=").append(params.get("author")).append("&");
+        }
+        if (params.containsKey("stid")) {
+            builder.append("stid=").append(params.get("stid")).append("&");
+        } else if (params.containsKey("fid")) {
+            builder.append("fid=").append(params.get("fid")).append("&");
+        }
+        if (params.containsKey("key")) {
+            builder.append("key=").append(params.get("key")).append("&");
+        }
+        if (params.containsKey("fidgroup")) {
+            builder.append("fidgroup=").append(params.get("fidgroup")).append("&");
+        }
+        if (params.containsKey("recommend")) {
+            builder.append("recommend=").append(params.get("recommend")).append("&");
+        }
+        if (params.containsKey("order_by")) {
+            builder.append("order_by=").append(params.get("order_by")).append("&");
+        }
+        builder.append("page=").append(params.get("page"));
+        builder.append("392e916a6d1d8b7523e2701470000c30bc2165a1");
+        builder.append(params.get("t"));
+        return MD5Util.MD5(builder.toString());
     }
 }

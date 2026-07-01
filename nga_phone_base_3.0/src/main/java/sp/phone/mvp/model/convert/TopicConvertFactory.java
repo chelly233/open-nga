@@ -202,7 +202,13 @@ public class TopicConvertFactory {
             if (tBean.getAttachs() != null) {
                 for (TopicListBean.DataBean.TBean.AttachBean attach : tBean.getAttachs().values()) {
                     if (attach != null) {
-                        pageInfo.addPreviewImage(attach.getAttachurl());
+                        String previewUrl = attach.getAttachurl();
+                        if (TextUtils.isEmpty(previewUrl)) {
+                            previewUrl = attach.getThumb();
+                        }
+                        if (!TextUtils.isEmpty(previewUrl)) {
+                            pageInfo.addPreviewImage(previewUrl);
+                        }
                     }
                 }
             }
@@ -240,7 +246,6 @@ public class TopicConvertFactory {
                     pageInfo.setFid(Integer.parseInt(obj.toString()));
                 }
             }
-
 
             listInfo.addThreadPage(pageInfo);
             count++;
