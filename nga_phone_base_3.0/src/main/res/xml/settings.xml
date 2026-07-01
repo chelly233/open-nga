@@ -90,6 +90,12 @@
             android:key="sort_by_post"
             android:title="@string/setting_title_sort_by_post" />
 
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="topic_list_preview_image"
+            android:summary="@string/setting_topic_list_preview_image_summary"
+            android:title="@string/setting_topic_list_preview_image_title" />
+
 
         <SwitchPreference
             android:key="filter_sub_board"

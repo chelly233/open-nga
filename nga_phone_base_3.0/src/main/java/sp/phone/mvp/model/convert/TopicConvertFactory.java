@@ -199,6 +199,13 @@ public class TopicConvertFactory {
             pageInfo.setType(tBean.getType());
             pageInfo.setTopicMisc(tBean.getTopic_misc());
             pageInfo.setTitleFont(tBean.getTitlefont());
+            if (tBean.getAttachs() != null) {
+                for (TopicListBean.DataBean.TBean.AttachBean attach : tBean.getAttachs().values()) {
+                    if (attach != null) {
+                        pageInfo.addPreviewImage(attach.getAttachurl());
+                    }
+                }
+            }
             int tid = tBean.getTid();
             String tpcUrl = tBean.getTpcurl();
             if (tpcUrl != null && tpcUrl.contains("tid")) {

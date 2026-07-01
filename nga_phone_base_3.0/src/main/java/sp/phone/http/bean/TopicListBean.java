@@ -252,6 +252,7 @@ public class TopicListBean {
             private String titlefont;
             private int admin_ui;
             private String tpcurl;
+            private Map<String, AttachBean> attachs;
             private PBean __P;
             /**
              * 0 : 275
@@ -421,6 +422,14 @@ public class TopicListBean {
                 this.__P = __P;
             }
 
+            public Map<String, AttachBean> getAttachs() {
+                return attachs;
+            }
+
+            public void setAttachs(Map<String, AttachBean> attachs) {
+                this.attachs = attachs;
+            }
+
             @Override
             public String toString() {
                 return "TBean{" +
@@ -430,6 +439,19 @@ public class TopicListBean {
                         ", type=" + type +
                         ", recommend=" + recommend +
                         '}';
+            }
+
+            public static class AttachBean {
+
+                private String attachurl;
+
+                public String getAttachurl() {
+                    return attachurl;
+                }
+
+                public void setAttachurl(String attachurl) {
+                    this.attachurl = attachurl;
+                }
             }
 
             public static class PBean {

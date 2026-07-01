@@ -2,6 +2,9 @@ package sp.phone.mvp.model.entity;
 
 import androidx.annotation.NonNull;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class ThreadPageInfo {
 
     private int mTid;
@@ -37,6 +40,8 @@ public class ThreadPageInfo {
     private ReplyInfo mReplyInfo;
 
     private String mBoard;
+
+    private List<String> mPreviewImages;
 
     /**
      * 是否是版面镜像
@@ -182,6 +187,22 @@ public class ThreadPageInfo {
     public void setBoard(String parentBoard) {
         mBoard = parentBoard;
         mMirrorBoard = "版面镜像".equals(parentBoard);
+    }
+
+    public List<String> getPreviewImages() {
+        return mPreviewImages;
+    }
+
+    public void addPreviewImage(String previewImage) {
+        if (previewImage == null || previewImage.length() == 0) {
+            return;
+        }
+        if (mPreviewImages == null) {
+            mPreviewImages = new ArrayList<>();
+        }
+        if (!mPreviewImages.contains(previewImage)) {
+            mPreviewImages.add(previewImage);
+        }
     }
 
     public static class ReplyInfo {

@@ -50,6 +50,8 @@ public class PreferenceKey {
 
     public static final String SORT_BY_POST = "sort_by_post";
 
+    public static final String TOPIC_LIST_PREVIEW_IMAGE = "topic_list_preview_image";
+
     public static final String PREF_NOTES_LIST = "pref_notes_list";
 
     public static final String PREF_DRAFT_TOPIC = "pref_draft_topic";

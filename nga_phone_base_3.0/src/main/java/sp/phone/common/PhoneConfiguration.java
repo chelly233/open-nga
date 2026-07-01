@@ -46,6 +46,8 @@ public class PhoneConfiguration extends PreferenceKey implements SharedPreferenc
 
     private boolean mSortByPostOrder;
 
+    private boolean mTopicListPreviewImage;
+
     private String mAvatarLoadStrategy = PreferenceKey.IMAGE_LOAD_ALWAYS;
 
     private String mImageLoadStrategy = PreferenceKey.IMAGE_LOAD_ALWAYS;
@@ -85,6 +87,9 @@ public class PhoneConfiguration extends PreferenceKey implements SharedPreferenc
                 break;
             case PreferenceKey.SORT_BY_POST:
                 mSortByPostOrder = sp.getBoolean(key, false);
+                break;
+            case PreferenceKey.TOPIC_LIST_PREVIEW_IMAGE:
+                mTopicListPreviewImage = sp.getBoolean(key, false);
                 break;
             case PreferenceKey.KEY_LOAD_AVATAR_STRATEGY:
                 mAvatarLoadStrategy = sp.getString(key, mAvatarLoadStrategy);
@@ -126,6 +131,7 @@ public class PhoneConfiguration extends PreferenceKey implements SharedPreferenc
         mHardwareAcceleratedEnabled = sp.getBoolean(PreferenceKey.HARDWARE_ACCELERATED, true);
         mFilterSubBoard = sp.getBoolean(PreferenceKey.FILTER_SUB_BOARD, false);
         mSortByPostOrder = sp.getBoolean(PreferenceKey.SORT_BY_POST, false);
+        mTopicListPreviewImage = sp.getBoolean(PreferenceKey.TOPIC_LIST_PREVIEW_IMAGE, false);
 
         mImageLoadStrategy = sp.getString(PreferenceKey.KEY_LOAD_IMAGE_STRATEGY, mImageLoadStrategy);
         mAvatarLoadStrategy = sp.getString(PreferenceKey.KEY_LOAD_AVATAR_STRATEGY, mAvatarLoadStrategy);
@@ -133,6 +139,10 @@ public class PhoneConfiguration extends PreferenceKey implements SharedPreferenc
 
     public boolean needSortByPostOrder() {
         return mSortByPostOrder;
+    }
+
+    public boolean isTopicListPreviewImageEnabled() {
+        return mTopicListPreviewImage;
     }
 
     public boolean isShowBottomTab() {
@@ -254,4 +264,3 @@ public class PhoneConfiguration extends PreferenceKey implements SharedPreferenc
     }
 
 }
-

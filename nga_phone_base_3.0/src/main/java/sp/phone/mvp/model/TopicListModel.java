@@ -1,6 +1,7 @@
 package sp.phone.mvp.model;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.justwen.androidnga.cloud.CloudServerManager;
 
 import org.apache.commons.io.FileUtils;
@@ -13,6 +14,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import gov.anzong.androidnga.base.util.ContextUtils;
 import gov.anzong.androidnga.base.util.ThreadUtils;
@@ -30,6 +34,7 @@ import sp.phone.mvp.model.convert.ErrorConvertFactory;
 import sp.phone.mvp.model.convert.TopicConvertFactory;
 import sp.phone.mvp.model.entity.ThreadPageInfo;
 import sp.phone.mvp.model.entity.TopicListInfo;
+import sp.phone.common.PhoneConfiguration;
 import sp.phone.param.TopicListParam;
 import sp.phone.rxjava.BaseSubscriber;
 import sp.phone.util.NLog;
@@ -40,6 +45,13 @@ import sp.phone.util.StringUtils;
  */
 
 public class TopicListModel extends BaseModel implements TopicListContract.Model {
+
+    private static final int TOPIC_TYPE_HAS_IMAGE = 8192;
+
+    private static final int TOPIC_PREVIEW_DETAIL_TIMEOUT_SECONDS = 3;
+
+    private static final Pattern TOPIC_DETAIL_IMAGE_PATTERN =
+            Pattern.compile("(?is)\\[img(?:=[^\\]]*)?\\](.*?)\\[/img\\]");
 
     private RetrofitService mService;
 
@@ -138,6 +150,7 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
                         //NLog.d(js);
                         TopicListInfo result = mConvertFactory.getTopicListInfo(js, page);
                         if (result != null) {
+                            supplementMissingPreviewImages(result);
                             return result;
                         } else {
                             throw new Exception(ErrorConvertFactory.getErrorMessage(js));
@@ -172,6 +185,7 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
                         NLog.d(js);
                         TopicListInfo result = mConvertFactory.getTopicListInfo(js, 0);
                         if (result != null) {
+                            supplementMissingPreviewImages(result);
                             return result;
                         } else {
                             throw new Exception(ErrorConvertFactory.getErrorMessage(js));
@@ -212,9 +226,78 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            callBack.onError(null);
+                callBack.onError(null);
 
         });
+    }
+
+    private void supplementMissingPreviewImages(TopicListInfo listInfo) {
+        if (!PhoneConfiguration.getInstance().isTopicListPreviewImageEnabled()) {
+            return;
+        }
+        for (ThreadPageInfo pageInfo : listInfo.getThreadPageList()) {
+            if (!shouldSupplementPreviewImages(pageInfo)) {
+                continue;
+            }
+            try {
+                String js = mService.get(getTopicDetailUrl(pageInfo.getTid()))
+                        .timeout(TOPIC_PREVIEW_DETAIL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                        .blockingFirst();
+                fillPreviewImagesFromTopicDetail(pageInfo, js);
+            } catch (Exception e) {
+                NLog.d("TopicListModel", "supplement preview image failed tid=" + pageInfo.getTid());
+            }
+        }
+    }
+
+    private boolean shouldSupplementPreviewImages(ThreadPageInfo pageInfo) {
+        return pageInfo != null
+                && pageInfo.getTid() > 0
+                && (pageInfo.getType() & TOPIC_TYPE_HAS_IMAGE) != 0
+                && (pageInfo.getPreviewImages() == null || pageInfo.getPreviewImages().isEmpty());
+    }
+
+    private String getTopicDetailUrl(int tid) {
+        return getAvailableDomain() + "/read.php?tid=" + tid + "&page=1&lite=js&noprefix";
+    }
+
+    private void fillPreviewImagesFromTopicDetail(ThreadPageInfo pageInfo, String js) {
+        if (StringUtils.isEmpty(js)) {
+            return;
+        }
+        JSONObject data = JSON.parseObject(js).getJSONObject("data");
+        if (data == null) {
+            return;
+        }
+        JSONObject rowMap = data.getJSONObject("__R");
+        if (rowMap == null) {
+            return;
+        }
+        JSONObject firstRow = rowMap.getJSONObject("0");
+        if (firstRow == null) {
+            return;
+        }
+        JSONObject attachs = firstRow.getJSONObject("attachs");
+        if (attachs != null) {
+            for (Object value : attachs.values()) {
+                if (value instanceof JSONObject) {
+                    pageInfo.addPreviewImage(((JSONObject) value).getString("attachurl"));
+                }
+            }
+        }
+        if (pageInfo.getPreviewImages() != null && !pageInfo.getPreviewImages().isEmpty()) {
+            return;
+        }
+        String content = firstRow.getString("content");
+        if (StringUtils.isEmpty(content)) {
+            return;
+        }
+        Matcher matcher = TOPIC_DETAIL_IMAGE_PATTERN.matcher(content);
+        while (matcher.find()) {
+            pageInfo.addPreviewImage(matcher.group(1)
+                    .replace("\\/", "/")
+                    .replace("&amp;", "&"));
+        }
     }
 
     private String getUrl(int page, TopicListParam requestInfo) {
@@ -228,8 +311,13 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
         if (requestInfo.favor != 0) {
             jsonUri.append("favor=").append(requestInfo.favor).append("&");
         }
-        if (requestInfo.content != 0) {
-            jsonUri.append("content=").append(requestInfo.content).append("&");
+        int content = requestInfo.content;
+        if (content == 0
+                && PhoneConfiguration.getInstance().isTopicListPreviewImageEnabled()) {
+            content = 1;
+        }
+        if (content != 0) {
+            jsonUri.append("content=").append(content).append("&");
         }
 
         if (!StringUtils.isEmpty(requestInfo.author)) {
