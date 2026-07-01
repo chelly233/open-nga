@@ -77,7 +77,7 @@ public class ArticleListActivity extends BaseActivity {
     }
 
     private void applyHistoryPage(ArticleListParam param, String url) {
-        if (param.tid == 0 || param.pid != 0 || param.searchPost != 0) {
+        if (param.tid == 0 || param.pid != 0 || param.authorId != 0 || param.searchPost != 0) {
             return;
         }
         boolean hasExplicitPage = url != null && url.contains("page=");

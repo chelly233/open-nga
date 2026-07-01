@@ -22,6 +22,11 @@
         android:title="@string/menu_oppose"/>
 
     <item
+        android:id="@+id/menu_show_this_person_only"
+        android:title="@string/show_this_person_only"
+        androidnga:showAsAction="never"/>
+
+    <item
         android:id="@+id/menu_ban_this_one"
         android:title="@string/ban_thisone"
         androidnga:showAsAction="never"/>

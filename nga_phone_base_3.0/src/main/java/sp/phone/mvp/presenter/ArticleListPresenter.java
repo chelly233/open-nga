@@ -200,6 +200,12 @@ public class ArticleListPresenter extends BasePresenter<ArticleListFragment, Art
         } else {
             builder.append("tid=").append(mRequestParam.tid);
         }
+        if (mRequestParam.authorId != 0) {
+            builder.append("&authorid=").append(mRequestParam.authorId);
+        }
+        if (mRequestParam.page > 0) {
+            builder.append("&page=").append(mRequestParam.page);
+        }
         return builder.toString();
     }
 

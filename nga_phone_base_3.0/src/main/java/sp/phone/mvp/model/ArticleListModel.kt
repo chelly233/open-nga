@@ -338,7 +338,7 @@ class ArticleListModel : BaseModel(), ArticleListContract.Model {
             NLog.e(TAG, "invalid web page: floor exceeds total rows maxFloor=$maxFloor, totalRows=$totalRows")
             return false
         }
-        if (param.page > 0) {
+        if (param.page > 0 && param.authorId == 0) {
             val expectedMinFloor = (param.page - 1) * 20
             val expectedMaxFloor = expectedMinFloor + 19
             if (maxFloor < expectedMinFloor || minFloor > expectedMaxFloor) {
