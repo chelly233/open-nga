@@ -221,6 +221,9 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
         if (requestInfo.favor != 0) {
             params.put("favor", String.valueOf(requestInfo.favor));
         }
+        if (requestInfo.content != 0) {
+            params.put("content", String.valueOf(requestInfo.content));
+        }
         if (!StringUtils.isEmpty(requestInfo.author)) {
             try {
                 if (requestInfo.author.endsWith("&searchpost=1")) {
@@ -281,6 +284,9 @@ public class TopicListModel extends BaseModel implements TopicListContract.Model
         }
         if (params.containsKey("favor")) {
             builder.append("favor=").append(params.get("favor")).append("&");
+        }
+        if (params.containsKey("content")) {
+            builder.append("content=").append(params.get("content")).append("&");
         }
         if (params.containsKey("author")) {
             builder.append("author=").append(params.get("author")).append("&");
