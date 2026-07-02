@@ -1,7 +1,6 @@
 package gov.anzong.androidnga.base.logger;
 
-import android.os.Build;
-import android.os.Environment;
+import android.content.Context;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -14,6 +13,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import gov.anzong.androidnga.base.util.ContextUtils;
 
 public class LocalDebugLogger extends DebugLogger {
 
@@ -36,8 +37,15 @@ public class LocalDebugLogger extends DebugLogger {
     }
 
     private File getOutputFile() {
-        File rootDir = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) : Environment.getExternalStorageDirectory();
-        File logDir = new File(rootDir, "/nga_open_source/log/");
+        Context context = ContextUtils.getApplication();
+        if (context == null) {
+            context = ContextUtils.getContext();
+        }
+        File rootDir = context == null ? null : context.getExternalFilesDir(null);
+        if (rootDir == null && context != null) {
+            rootDir = context.getFilesDir();
+        }
+        File logDir = rootDir == null ? new File("nga_open_source/log/") : new File(rootDir, "nga_open_source/log/");
         if (!logDir.exists()) {
             logDir.mkdirs();
         }
@@ -116,6 +124,9 @@ public class LocalDebugLogger extends DebugLogger {
     private void output(String tag, String msg) {
         String time = mDateFormat.format(new Date());
         mExecutorService.execute(() -> {
+            if (mFileWriter == null) {
+                return;
+            }
             try {
                 mFileWriter.write(time + " " + tag + " " + msg);
                 mFileWriter.write("\n");

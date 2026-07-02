@@ -65,6 +65,8 @@ public class SearchHistoryTopicFragment extends SearchHistoryBoardFragment {
         int fid = getArguments().getInt("fid");
         if (mCurrentBoard && fid != 0) {
             postcard.withInt("fid", fid);
+        } else if (!mCurrentBoard) {
+            postcard.withString("fidgroup", "user");
         }
         postcard.navigation(getContext());
 

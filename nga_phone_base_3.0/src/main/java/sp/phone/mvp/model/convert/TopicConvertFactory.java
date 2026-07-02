@@ -38,6 +38,7 @@ public class TopicConvertFactory {
             js = js.substring("window.script_muti_get_var_store=".length());
         }
         js = js.replace(",\"parent\":\"\"", "");
+        js = js.replaceAll("\"attachs\"\\s*:\\s*\"\"", "\"attachs\":{}");
         TopicListBean topicListBean = JSON.parseObject(js, TopicListBean.class);
 
         try {
@@ -253,7 +254,9 @@ public class TopicConvertFactory {
     }
 
     private boolean filterTopic(TopicListInfo listInfo, TopicListBean topicListBean, TopicListBean.DataBean.TBean tBean) {
-        if (topicListBean.getData().get__F() != null
+        if (tBean.isDenied()) {
+            return true;
+        } else if (topicListBean.getData().get__F() != null
                 && PhoneConfiguration.getInstance().needFilterSubBoard()
                 && topicListBean.getData().get__F().getFid() == -7
                 && tBean.getRecommend() > 9) {

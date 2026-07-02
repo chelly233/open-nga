@@ -254,6 +254,8 @@ public class TopicListBean {
             private String tpcurl;
             private Map<String, AttachBean> attachs;
             private PBean __P;
+            private String denied;
+            private String error;
             /**
              * 0 : 275
              * 2 : 测试版面
@@ -428,6 +430,26 @@ public class TopicListBean {
 
             public void setAttachs(Map<String, AttachBean> attachs) {
                 this.attachs = attachs;
+            }
+
+            public String getDenied() {
+                return denied;
+            }
+
+            public void setDenied(String denied) {
+                this.denied = denied;
+            }
+
+            public String getError() {
+                return error;
+            }
+
+            public void setError(String error) {
+                this.error = error;
+            }
+
+            public boolean isDenied() {
+                return "1".equals(denied);
             }
 
             @Override

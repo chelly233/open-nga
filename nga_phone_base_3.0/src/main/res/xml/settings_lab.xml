@@ -27,7 +27,7 @@
     <SwitchPreference
         android:defaultValue="false"
         android:key="@string/pref_local_debug_switch"
-        android:summary="日志存放在/Download/nga_open_source/log/"
+        android:summary="日志存放在应用专属目录/nga_open_source/log/"
         android:iconSpaceReserved="false"
         android:title="本地日志" />
 

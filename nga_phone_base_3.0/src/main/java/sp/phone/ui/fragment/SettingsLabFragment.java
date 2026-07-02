@@ -1,6 +1,5 @@
 package sp.phone.ui.fragment;
 
-import android.Manifest;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.webkit.WebSettings;
@@ -11,7 +10,6 @@ import androidx.preference.SwitchPreference;
 
 import gov.anzong.androidnga.R;
 import gov.anzong.androidnga.base.logger.Logger;
-import gov.anzong.androidnga.base.util.PermissionUtils;
 import gov.anzong.androidnga.common.PreferenceKey;
 import gov.anzong.androidnga.ui.fragment.BasePreferenceFragment;
 import sp.phone.http.retrofit.RetrofitHelper;
@@ -35,12 +33,6 @@ public class SettingsLabFragment extends BasePreferenceFragment {
         }
         preference.setChecked(Logger.getInstance().isLocalDebug());
         preference.setOnPreferenceChangeListener((preference1, newValue1) -> {
-            if (newValue1.equals(Boolean.TRUE)) {
-                if (!PermissionUtils.hasPermission(getContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                    PermissionUtils.request(SettingsLabFragment.this, null, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-                    return false;
-                }
-            }
             Logger.getInstance().setLocalDebug(Boolean.TRUE.equals(newValue1));
             Logger.getInstance().updateLogger();
             return true;
